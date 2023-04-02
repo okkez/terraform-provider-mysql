@@ -12,11 +12,28 @@ import (
 // CLI command executed to create a provider server to which the CLI can
 // reattach.
 var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-	"scaffolding": providerserver.NewProtocol6WithError(New("test")()),
+	"test": providerserver.NewProtocol6WithError(New("test")()),
 }
 
 func testAccPreCheck(t *testing.T) {
 	// You can add code here to run prior to any test case execution, for example assertions
 	// about the appropriate environment variables being set are common to see in a pre-check
 	// function.
+}
+
+func buildConfig(config string) string {
+	return `
+terraform {
+  required_providers {
+    mysql = {
+      source = "registry.terraform.io/okkez/mysql"
+    }
+  }
+}
+provider "mysql" {
+  endpoint = "localhost:33306"
+  username = "root"
+  password = "password"
+}
+` + config
 }
