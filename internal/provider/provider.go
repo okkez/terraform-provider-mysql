@@ -133,6 +133,11 @@ func (p *mysqlProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		password = data.Password.ValueString()
 	}
 
+	ctx = tflog.SetField(ctx, "mysql_endpoint", endpoint)
+	ctx = tflog.SetField(ctx, "mysql_username", username)
+	ctx = tflog.SetField(ctx, "mysql_password", password)
+	ctx = tflog.MaskFieldValuesWithFieldKeys(ctx, "mysql_password")
+
 	tflog.Debug(ctx, "Creating MySQL client")
 
 	conf := mysql.Config{
