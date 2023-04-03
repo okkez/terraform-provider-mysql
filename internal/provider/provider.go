@@ -179,7 +179,7 @@ func (p *mysqlProvider) Configure(ctx context.Context, req provider.ConfigureReq
 
 func (p *mysqlProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		NewExampleResource,
+		NewDatabaseResource,
 	}
 }
 
