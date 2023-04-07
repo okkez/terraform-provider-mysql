@@ -53,18 +53,12 @@ func (r *roleResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 			"name": schema.StringAttribute{
 				MarkdownDescription: "MySQL role name",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 			},
 			"host": schema.StringAttribute{
 				MarkdownDescription: "Host for the role",
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString("%"),
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 			},
 		},
 	}
@@ -155,7 +149,44 @@ WHERE
 }
 
 func (r *roleResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	resp.Diagnostics.AddError("Unexpectedly called", "this is provider bug")
+	db, err := getDatabase(ctx, r.mysqlConfig)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to connect MySQL", err.Error())
+		return
+	}
+
+	var data, state *roleResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if data.Name.Equal(state.Name) && data.Host.Equal(state.Host) {
+		return
+	}
+
+	oldName := state.Name.ValueString()
+	oldHost := state.Host.ValueString()
+	newName := data.Name.ValueString()
+	newHost := data.Host.ValueString()
+
+	var args []interface{}
+	args = append(args, oldName)
+	args = append(args, oldHost)
+	args = append(args, newName)
+	args = append(args, newHost)
+
+	sql := "RENAME USER ?@? TO ?@?"
+	tflog.Debug(ctx, sql, map[string]any{"args": args})
+
+	_, err = db.ExecContext(ctx, sql, args...)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to rename role", err.Error())
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func (r *roleResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
