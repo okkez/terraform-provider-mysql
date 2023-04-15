@@ -11,13 +11,20 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
-var _ resource.Resource = &roleResource{}
-var _ resource.ResourceWithImportState = &roleResource{}
+var (
+	_ resource.Resource                = &roleResource{}
+	_ resource.ResourceWithConfigure   = &roleResource{}
+	_ resource.ResourceWithImportState = &roleResource{}
+)
 
 func NewRoleResource() resource.Resource {
 	return &roleResource{}
@@ -30,7 +37,7 @@ type roleResource struct {
 
 // roleResourceModel describes the resource data model.
 type roleResourceModel struct {
-	Id   types.String `tfsdk:"id"`
+	ID   types.String `tfsdk:"id"`
 	Name types.String `tfsdk:"name"`
 	Host types.String `tfsdk:"host"`
 }
@@ -53,12 +60,24 @@ func (r *roleResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 			"name": schema.StringAttribute{
 				MarkdownDescription: "MySQL role name",
 				Required:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthAtMost(32),
+				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"host": schema.StringAttribute{
 				MarkdownDescription: "Host for the role",
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString("%"),
+				Validators: []validator.String{
+					stringvalidator.LengthAtMost(255),
+				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 		},
 	}
@@ -88,15 +107,18 @@ func (r *roleResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 	name := data.Name.ValueString()
 	host := data.Host.ValueString()
+	var args []interface{}
+	args = append(args, name)
+	args = append(args, host)
 	sql := "CREATE ROLE ?@?"
-	tflog.Debug(ctx, sql, map[string]any{"role": name, "host": host})
-	_, err = db.ExecContext(ctx, sql, name, host)
+	tflog.Info(ctx, sql, map[string]any{"args": args})
+	_, err = db.ExecContext(ctx, sql, args...)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed creating role", err.Error())
 		return
 	}
 
-	data.Id = types.StringValue(fmt.Sprintf("%s@%s", name, host))
+	data.ID = types.StringValue(fmt.Sprintf("%s@%s", args...))
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -113,13 +135,9 @@ func (r *roleResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	nameHost := strings.SplitN(data.Id.ValueString(), "@", 2)
-	if len(nameHost) != 2 {
-		resp.Diagnostics.AddAttributeError(path.Root("id"), "Invalid id format", data.Id.ValueString())
-		return
-	}
-	name := nameHost[0]
-	host := nameHost[1]
+	var args []interface{}
+	args = append(args, data.Name.ValueString())
+	args = append(args, data.Host.ValueString())
 
 	sql := `
 SELECT
@@ -133,12 +151,12 @@ WHERE
   AND authentication_string = ''
   AND password_expired = 'Y'
 `
-	tflog.Debug(ctx, sql, map[string]any{"role": name, "host": host})
+	tflog.Info(ctx, sql, map[string]any{"args": args})
 
-	var _user, _host string
-	if err = db.QueryRowContext(ctx, sql, name, host).Scan(&_user, &_host); err != nil {
-		resp.Diagnostics.AddWarning(fmt.Sprintf("Role (%s) not found. Removing from state.", name), err.Error())
-		data.Id = types.StringNull()
+	var name, host string
+	if err = db.QueryRowContext(ctx, sql, args...).Scan(&name, &host); err != nil {
+		resp.Diagnostics.AddWarning(fmt.Sprintf("Role (%v) not found. Removing from state.", args), err.Error())
+		resp.State.RemoveResource(ctx)
 	} else {
 		data.Name = types.StringValue(name)
 		data.Host = types.StringValue(host)
@@ -149,44 +167,7 @@ WHERE
 }
 
 func (r *roleResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	db, err := getDatabase(ctx, r.mysqlConfig)
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to connect MySQL", err.Error())
-		return
-	}
-
-	var data, state *roleResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	if data.Name.Equal(state.Name) && data.Host.Equal(state.Host) {
-		return
-	}
-
-	oldName := state.Name.ValueString()
-	oldHost := state.Host.ValueString()
-	newName := data.Name.ValueString()
-	newHost := data.Host.ValueString()
-
-	var args []interface{}
-	args = append(args, oldName)
-	args = append(args, oldHost)
-	args = append(args, newName)
-	args = append(args, newHost)
-
-	sql := "RENAME USER ?@? TO ?@?"
-	tflog.Debug(ctx, sql, map[string]any{"args": args})
-
-	_, err = db.ExecContext(ctx, sql, args...)
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to rename role", err.Error())
-		return
-	}
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	panic("must not happen")
 }
 
 func (r *roleResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -205,15 +186,25 @@ func (r *roleResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	name := data.Name.ValueString()
 	host := data.Host.ValueString()
 	sql := "DROP ROLE IF EXISTS ?@?"
-	tflog.Debug(ctx, sql, map[string]any{"role": name, "host": host})
+	var args []interface{}
+	args = append(args, name)
+	args = append(args, host)
+	tflog.Info(ctx, sql, map[string]any{"args": args})
 
 	_, err = db.ExecContext(ctx, sql, name, host)
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("Failed deleting role (%s)", name), err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("Failed deleting role (%s@%s)", args...), err.Error())
 		return
 	}
 }
 
 func (r *roleResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	nameHost := strings.SplitN(req.ID, "@", 2)
+	if len(nameHost) != 2 {
+		resp.Diagnostics.AddAttributeError(path.Root("id"), fmt.Sprintf("Invalid ID format. %s", req.ID), "The valid ID format is `name@host`")
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(req.ID))...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), types.StringValue(nameHost[0]))...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("host"), types.StringValue(nameHost[1]))...)
 }
