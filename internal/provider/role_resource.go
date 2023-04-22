@@ -21,32 +21,32 @@ import (
 
 // Ensure provider defined types fully satisfy framework interfaces.
 var (
-	_ resource.Resource                = &roleResource{}
-	_ resource.ResourceWithConfigure   = &roleResource{}
-	_ resource.ResourceWithImportState = &roleResource{}
+	_ resource.Resource                = &RoleResource{}
+	_ resource.ResourceWithConfigure   = &RoleResource{}
+	_ resource.ResourceWithImportState = &RoleResource{}
 )
 
 func NewRoleResource() resource.Resource {
-	return &roleResource{}
+	return &RoleResource{}
 }
 
-// roleResource defines the resource implementation.
-type roleResource struct {
+// RoleResource defines the resource implementation.
+type RoleResource struct {
 	mysqlConfig *MySQLConfiguration
 }
 
-// roleResourceModel describes the resource data model.
-type roleResourceModel struct {
+// RoleResourceModel describes the resource data model.
+type RoleResourceModel struct {
 	ID   types.String `tfsdk:"id"`
 	Name types.String `tfsdk:"name"`
 	Host types.String `tfsdk:"host"`
 }
 
-func (r *roleResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+func (r *RoleResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_role"
 }
 
-func (r *roleResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *RoleResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "MySQL role",
 
@@ -83,7 +83,7 @@ func (r *roleResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 	}
 }
 
-func (r *roleResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *RoleResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	// Prevent panic if the provider has not been configured.
 	if req.ProviderData == nil {
 		return
@@ -92,14 +92,14 @@ func (r *roleResource) Configure(ctx context.Context, req resource.ConfigureRequ
 	r.mysqlConfig = req.ProviderData.(*MySQLConfiguration)
 }
 
-func (r *roleResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+func (r *RoleResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	db, err := getDatabase(ctx, r.mysqlConfig)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to connect MySQL", err.Error())
 		return
 	}
 
-	var data *roleResourceModel
+	var data *RoleResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -122,14 +122,14 @@ func (r *roleResource) Create(ctx context.Context, req resource.CreateRequest, r
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *roleResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+func (r *RoleResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	db, err := getDatabase(ctx, r.mysqlConfig)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to connect MySQL", err.Error())
 		return
 	}
 
-	var data *roleResourceModel
+	var data *RoleResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -166,18 +166,18 @@ WHERE
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *roleResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (r *RoleResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	panic("must not happen")
 }
 
-func (r *roleResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+func (r *RoleResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	db, err := getDatabase(ctx, r.mysqlConfig)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to connect MySQL", err.Error())
 		return
 	}
 
-	var data *roleResourceModel
+	var data *RoleResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -198,7 +198,7 @@ func (r *roleResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	}
 }
 
-func (r *roleResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *RoleResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	nameHost := strings.SplitN(req.ID, "@", 2)
 	if len(nameHost) != 2 {
 		resp.Diagnostics.AddAttributeError(path.Root("id"), fmt.Sprintf("Invalid ID format. %s", req.ID), "The valid ID format is `name@host`")
