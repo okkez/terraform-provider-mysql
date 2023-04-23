@@ -47,7 +47,6 @@ type UserResourceModel struct {
 	User         types.String `tfsdk:"user"`
 	Host         types.String `tfsdk:"host"`
 	AuthOption   types.Object `tfsdk:"auth_option"`
-	DefaultRoles types.Set    `tfsdk:"default_roles"`
 }
 
 type AuthOption struct {
@@ -123,30 +122,6 @@ func (r *UserResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 					},
 				},
 			},
-			"default_roles": schema.SetNestedAttribute{
-				MarkdownDescription: "",
-				Optional:            true,
-				NestedObject: schema.NestedAttributeObject{
-					Attributes: map[string]schema.Attribute{
-						"name": schema.StringAttribute{
-							MarkdownDescription: "",
-							Required:            true,
-							Validators: []validator.String{
-								stringvalidator.LengthAtMost(32),
-							},
-						},
-						"host": schema.StringAttribute{
-							MarkdownDescription: "",
-							Optional:            true,
-							Computed:            true,
-							Default:             stringdefault.StaticString("%"),
-							Validators: []validator.String{
-								stringvalidator.LengthAtMost(255),
-							},
-						},
-					},
-				},
-			},
 		},
 	}
 }
@@ -213,23 +188,6 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 		}
 	}
 
-	if !data.DefaultRoles.IsNull() {
-		var defaultRoles []RoleModel
-		data.DefaultRoles.ElementsAs(ctx, &defaultRoles, false)
-		var placeholders []string
-		for _, role := range defaultRoles {
-			if role.Host.IsNull() {
-				placeholders = append(placeholders, "?")
-				args = append(args, role.Name.ValueString())
-			} else {
-				placeholders = append(placeholders, "?@?")
-				args = append(args, role.Name.ValueString())
-				args = append(args, role.Host.ValueString())
-			}
-		}
-		sql += fmt.Sprintf(` DEFAULT ROLE %s`, strings.Join(placeholders, ","))
-	}
-
 	tflog.Info(ctx, sql, map[string]any{"args": args})
 	if callExec {
 		_, err = db.ExecContext(ctx, sql, args...)
@@ -288,31 +246,6 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		data.User = types.StringValue(user)
 		data.Host = types.StringValue(host)
 	}
-
-	defaultRolesSql := `SELECT DEFAULT_ROLE_HOST, DEFAULT_ROLE_USER FROM mysql.default_roles WHERE HOST = ? AND USER = ?`
-	tflog.Info(ctx, defaultRolesSql, map[string]any{"args": args})
-
-	rows, err := db.QueryContext(ctx, defaultRolesSql, args...)
-	if err != nil {
-		resp.Diagnostics.AddWarning("Failed fetchng default roles", err.Error())
-	}
-	defer rows.Close()
-	defaultRoles := []attr.Value{}
-	for rows.Next() {
-		attrTypes := map[string]attr.Type{}
-		attrValues := map[string]attr.Value{}
-		var defaultRoleHost, defaultRoleName string
-		if err := rows.Scan(&defaultRoleHost, &defaultRoleName); err != nil {
-			resp.Diagnostics.AddError("Failed scanning MySQL rows", err.Error())
-			return
-		}
-		attrTypes["name"] = types.StringType
-		attrTypes["host"] = types.StringType
-		attrValues["name"] = types.StringValue(defaultRoleName)
-		attrValues["host"] = types.StringValue(defaultRoleHost)
-		defaultRoles = append(defaultRoles, types.ObjectValueMust(attrTypes, attrValues))
-	}
-	data.DefaultRoles = types.SetValueMust(types.ObjectType{AttrTypes: RoleTypes}, defaultRoles)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -409,7 +342,7 @@ func (r *UserResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 
 	_, err = db.ExecContext(ctx, sql, args...)
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("Failed deleting role (%s@%s)", args...), err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("Failed deleting user (%s@%s)", args...), err.Error())
 		return
 	}
 }
