@@ -49,7 +49,7 @@ type UserResourceModel struct {
 	AuthOption   types.Object `tfsdk:"auth_option"`
 }
 
-type AuthOption struct {
+type AuthOptionModel struct {
 	Plugin         types.String `tfsdk:"plugin"`
 	AuthString     types.String `tfsdk:"auth_string"`
 	RandomPassword types.Bool   `tfsdk:"random_password"`
@@ -163,7 +163,7 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 	args = append(args, data.Host.ValueString())
 	sql := `CREATE USER ?@?`
 	if !data.AuthOption.IsNull() {
-		var authOption *AuthOption
+		var authOption *AuthOptionModel
 		resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("auth_option"), &authOption)...)
 		if !authOption.Plugin.IsNull() {
 			plugin := authOption.Plugin.ValueString()
@@ -274,7 +274,7 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	}
 
 	if !data.AuthOption.IsNull() {
-		var authOption *AuthOption
+		var authOption *AuthOptionModel
 		resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("auth_option"), &authOption)...)
 		if !authOption.Plugin.IsNull() {
 			plugin := authOption.Plugin.ValueString()
