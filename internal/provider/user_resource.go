@@ -104,9 +104,10 @@ func (r *UserResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"auth_option": schema.SingleNestedAttribute{
+		},
+		Blocks: map[string]schema.Block{
+			"auth_option": schema.SingleNestedBlock{
 				MarkdownDescription: "",
-				Optional:            true,
 				Attributes: map[string]schema.Attribute{
 					"plugin": schema.StringAttribute{
 						MarkdownDescription: "",
