@@ -1,8 +1,12 @@
 package provider
 
 import (
+	"context"
+	"database/sql"
 	"testing"
+	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 )
@@ -36,4 +40,29 @@ provider "mysql" {
   password = "password"
 }
 ` + config
+}
+
+func testDatabase() *sql.DB {
+	ctx := context.Background()
+	db, err := getDatabase(ctx, testMySQLConfig())
+	if err != nil {
+		panic(err.Error())
+	}
+	return db
+}
+
+func testMySQLConfig() *MySQLConfiguration {
+	conf := mysql.Config{
+		User: "root",
+		Passwd: "password",
+		Net: "tcp",
+		Addr: "localhost:33306",
+		TLSConfig: "false",
+	}
+	return &MySQLConfiguration{
+		Config: &conf,
+		MaxConnLifetime: time.Duration(8 * 60 * 60) * time.Second,
+		MaxOpenConns: 5,
+		ConnectRetryTimeoutSec: time.Duration(300) * time.Second,
+	}
 }
