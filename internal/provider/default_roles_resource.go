@@ -249,7 +249,7 @@ func (r *DefaultRolesResource) Delete(ctx context.Context, req resource.DeleteRe
 
 	_, err = db.ExecContext(ctx, sql, args...)
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("Failed deleting default roles for user (?@?)", user, host), err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("Failed deleting default roles for user (%s@%s)", user, host), err.Error())
 		return
 	}
 }
