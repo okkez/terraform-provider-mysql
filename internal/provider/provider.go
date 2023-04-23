@@ -182,6 +182,7 @@ func (p *mysqlProvider) Resources(ctx context.Context) []func() resource.Resourc
 		NewDatabaseResource,
 		NewRoleResource,
 		NewUserResource,
+		NewDefaultRolesResource,
 	}
 }
 
