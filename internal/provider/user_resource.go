@@ -61,7 +61,7 @@ type RoleModel struct {
 	Host types.String `tfsdk:"host"`
 }
 
-var defaultRoleTypes = map[string]attr.Type{
+var RoleTypes = map[string]attr.Type{
 	"name": types.StringType,
 	"host": types.StringType,
 }
@@ -312,7 +312,7 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		attrValues["host"] = types.StringValue(defaultRoleHost)
 		defaultRoles = append(defaultRoles, types.ObjectValueMust(attrTypes, attrValues))
 	}
-	data.DefaultRoles = types.SetValueMust(types.ObjectType{AttrTypes: defaultRoleTypes}, defaultRoles)
+	data.DefaultRoles = types.SetValueMust(types.ObjectType{AttrTypes: RoleTypes}, defaultRoles)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
