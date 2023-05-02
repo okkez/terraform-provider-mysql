@@ -117,7 +117,11 @@ func (r *DefaultRolesResource) Configure(ctx context.Context, req resource.Confi
 		return
 	}
 
-	r.mysqlConfig = req.ProviderData.(*MySQLConfiguration)
+	if mysqlConfig, ok := req.ProviderData.(*MySQLConfiguration); ok {
+		r.mysqlConfig = mysqlConfig
+	} else {
+		resp.Diagnostics.AddError("Failed type assertion", "")
+	}
 }
 
 func (r *DefaultRolesResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

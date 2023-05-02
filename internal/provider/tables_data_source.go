@@ -111,5 +111,9 @@ func (d *tablesDataSource) Configure(ctx context.Context, req datasource.Configu
 		return
 	}
 
-	d.mysqlConfig = req.ProviderData.(*MySQLConfiguration)
+	if mysqlConfig, ok := req.ProviderData.(*MySQLConfiguration); ok {
+		d.mysqlConfig = mysqlConfig
+	} else {
+		resp.Diagnostics.AddError("Failed type assertion", "")
+	}
 }

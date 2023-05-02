@@ -80,7 +80,11 @@ func (r *databaseResource) Configure(ctx context.Context, req resource.Configure
 		return
 	}
 
-	r.mysqlConfig = req.ProviderData.(*MySQLConfiguration)
+	if mysqlConfig, ok := req.ProviderData.(*MySQLConfiguration); ok {
+		r.mysqlConfig = mysqlConfig
+	} else {
+		resp.Diagnostics.AddError("Failed type assertion", "")
+	}
 }
 
 func (r *databaseResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

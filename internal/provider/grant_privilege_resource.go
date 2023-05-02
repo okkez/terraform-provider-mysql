@@ -135,7 +135,11 @@ func (r *GrantPrivilegeResource) Configure(ctx context.Context, req resource.Con
 		return
 	}
 
-	r.mysqlConfig = req.ProviderData.(*MySQLConfiguration)
+	if mysqlConfig, ok := req.ProviderData.(*MySQLConfiguration); ok {
+		r.mysqlConfig = mysqlConfig
+	} else {
+		resp.Diagnostics.AddError("Failed type assertion", "")
+	}
 }
 
 func (r *GrantPrivilegeResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
