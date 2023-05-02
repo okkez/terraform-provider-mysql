@@ -204,6 +204,11 @@ func New(version string) func() provider.Provider {
 func makeDialer(data *mysqlProviderModel) (proxy.Dialer, error) {
 	proxyFromEnv := proxy.FromEnvironment()
 
+	// TODO implement.
+	if data == nil {
+		return nil, fmt.Errorf("error")
+	}
+	fmt.Printf("%+v\n", data)
 	// if !data.Proxy.IsNull() {
 	// 	proxyURL, err := url.Parse(data.Proxy.ValueString())
 	// 	if err != nil {
@@ -219,14 +224,14 @@ func makeDialer(data *mysqlProviderModel) (proxy.Dialer, error) {
 	return proxyFromEnv, nil
 }
 
-func connectToMySQL(ctx context.Context, conf *MySQLConfiguration) (*sql.DB, error) {
-	conn, err := connectToMySQLInternal(ctx, conf)
-	if err != nil {
-		return nil, err
-	}
-	tflog.Info(ctx, "connect")
-	return conn.Db, nil
-}
+// func connectToMySQL(ctx context.Context, conf *MySQLConfiguration) (*sql.DB, error) {
+// 	conn, err := connectToMySQLInternal(ctx, conf)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	tflog.Info(ctx, "connect")
+// 	return conn.Db, nil
+// }
 
 func connectToMySQLInternal(ctx context.Context, conf *MySQLConfiguration) (*OneConnection, error) {
 	// This is fine - we'll connect serially, but we don't expect more than
@@ -323,16 +328,6 @@ func serverVersion(db *sql.DB) (*version.Version, error) {
 
 	versionString = strings.SplitN(versionString, ":", 2)[0]
 	return version.NewVersion(versionString)
-}
-
-func serverVersionString(db *sql.DB) (string, error) {
-	var versionString string
-	err := db.QueryRow("SELECT @@GLOBAL.version").Scan(&versionString)
-	if err != nil {
-		return "", err
-	}
-
-	return versionString, nil
 }
 
 // 0 == not mysql error or not error at all.
