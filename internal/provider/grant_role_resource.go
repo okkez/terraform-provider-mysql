@@ -216,12 +216,20 @@ func (r *GrantRoleResource) Update(ctx context.Context, req resource.UpdateReque
 	for _, change := range changelog {
 		switch change.Type {
 		case "create":
-			rolesToGrant = append(rolesToGrant, change.To.(string))
+			if role, ok := change.To.(string); ok {
+				rolesToGrant = append(rolesToGrant, role)
+			}
 		case "update":
-			rolesToGrant = append(rolesToGrant, change.To.(string))
-			rolesToRevoke = append(rolesToRevoke, change.From.(string))
+			if role, ok := change.To.(string); ok {
+				rolesToGrant = append(rolesToGrant, role)
+			}
+			if role, ok := change.From.(string); ok {
+				rolesToRevoke = append(rolesToRevoke, role)
+			}
 		case "delete":
-			rolesToRevoke = append(rolesToRevoke, change.From.(string))
+			if role, ok := change.From.(string); ok {
+				rolesToRevoke = append(rolesToRevoke, role)
+			}
 		}
 	}
 

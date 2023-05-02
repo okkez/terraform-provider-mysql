@@ -311,12 +311,20 @@ func (r *GrantPrivilegeResource) Update(ctx context.Context, req resource.Update
 		if change.Path[1] == "priv_type" && change.Path[2] == "value" {
 			switch change.Type {
 			case "create":
-				toGrant.PrivType = types.StringValue(change.To.(string))
+				if priv, ok := change.To.(string); ok {
+					toGrant.PrivType = types.StringValue(priv)
+				}
 			case "update":
-				toGrant.PrivType = types.StringValue(change.To.(string))
-				toRevoke.PrivType = types.StringValue(change.From.(string))
+				if priv, ok := change.To.(string); ok {
+					toGrant.PrivType = types.StringValue(priv)
+				}
+				if priv, ok := change.From.(string); ok {
+					toRevoke.PrivType = types.StringValue(priv)
+				}
 			case "delete":
-				toRevoke.PrivType = types.StringValue(change.From.(string))
+				if priv, ok := change.From.(string); ok {
+					toRevoke.PrivType = types.StringValue(priv)
+				}
 			}
 		}
 		prev = change.Path[0]
