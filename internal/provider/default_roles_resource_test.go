@@ -14,7 +14,7 @@ func TestAccDefaultRoleResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccExampleResourceConfig("one"),
+				Config: testAccDefaultRoleResourceConfig("test-user", "test-role"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_default_role.test", "id", "test-user@%"),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "user", "test-user"),
@@ -31,7 +31,7 @@ func TestAccDefaultRoleResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccExampleResourceConfig("two"),
+				Config: testAccDefaultRoleResourceConfig("test-user", "test-role2"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.name", "test-role2"),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.host", "%"),
