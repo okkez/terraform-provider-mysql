@@ -96,7 +96,7 @@ func (r *databaseResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	database, err := quoteIdentifier(ctx, db, data.Name.ValueString())
+	database, _ := quoteIdentifier(ctx, db, data.Name.ValueString())
 	sql := fmt.Sprintf("CREATE DATABASE %s", database)
 	var args []interface{}
 	if !data.DefaultCharacterSet.IsNull() {
@@ -161,7 +161,7 @@ func (r *databaseResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	database, err := quoteIdentifier(ctx, db, data.Name.ValueString())
+	database, _ := quoteIdentifier(ctx, db, data.Name.ValueString())
 	sql := fmt.Sprintf("ALTER DATABASE %s", database)
 	var args []interface{}
 	if !data.DefaultCharacterSet.Equal(state.DefaultCharacterSet) {
@@ -198,7 +198,7 @@ func (r *databaseResource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 
-	database, err := quoteIdentifier(ctx, db, data.Name.ValueString())
+	database, _ := quoteIdentifier(ctx, db, data.Name.ValueString())
 	sql := fmt.Sprintf("DROP DATABASE %s", database)
 	tflog.Info(ctx, sql)
 
