@@ -49,16 +49,16 @@ func (v *GrantPrivilege) PrivString() string {
 		return ""
 	}
 	privs := make([]string, len(v.Privileges))
-	for _, priv := range v.Privileges {
+	for privIndex, priv := range v.Privileges {
 		if len(priv.Cols) > 0 {
 			s := priv.Priv.String()
 			columnNames := make([]string, len(priv.Cols))
-			for _, col := range priv.Cols {
-				columnNames = append(columnNames, col.Name.O)
+			for colIndex, col := range priv.Cols {
+				columnNames[colIndex] = col.Name.O
 			}
-			privs = append(privs, s+" "+strings.Join(columnNames, ","))
+			privs[privIndex] = s+" "+strings.Join(columnNames, ",")
 		} else {
-			privs = append(privs, priv.Priv.String())
+			privs[privIndex] = priv.Priv.String()
 		}
 	}
 
