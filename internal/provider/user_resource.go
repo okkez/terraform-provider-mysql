@@ -10,8 +10,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	// "github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
-
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	"github.com/okkez/terraform-provider-mysql/internal/utils"
