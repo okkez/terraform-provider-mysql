@@ -22,7 +22,7 @@ func getDatabase(ctx context.Context, mysqlConf *MySQLConfiguration) (*sql.DB, e
 
 func getDatabaseVersion(ctx context.Context, mysqlConf *MySQLConfiguration) *version.Version {
 	oneConnection, err := connectToMySQLInternal(ctx, mysqlConf)
-	
+
 	if err != nil {
 		tflog.Info(ctx, fmt.Sprintf("getting DB got us error: %v", err))
 	}
@@ -42,8 +42,8 @@ func quoteIdentifiers(ctx context.Context, db *sql.DB, identifiers ...string) ([
 	originalIdentifiers := make([]interface{}, len(identifiers))
 	quotedIdentifiers := make([]string, len(identifiers))
 	placeholders := make([]string, len(identifiers))
-	for i, _ := range identifiers {
-		originalIdentifiers[i] = identifiers[i]
+	for i, identifier := range identifiers {
+		originalIdentifiers[i] = identifier
 		placeholders[i] = "sys.quote_identifier(?)"
 	}
 	sql := fmt.Sprintf(`SELECT %s`, strings.Join(placeholders, ","))

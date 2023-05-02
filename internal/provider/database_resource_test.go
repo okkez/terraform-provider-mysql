@@ -50,4 +50,3 @@ resource "mysql_database" "test" {
 `, name)
 	return buildConfig(config)
 }
-

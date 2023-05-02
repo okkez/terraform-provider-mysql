@@ -13,7 +13,7 @@ func TestAccTablesDataSource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Read testing
 			{
-			Config: buildConfig(`
+				Config: buildConfig(`
 data "mysql_tables" "test" {
   database = "test"
 }

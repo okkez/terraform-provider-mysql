@@ -39,10 +39,10 @@ type UserResource struct {
 
 // UserResourceModel describes the resource data model.
 type UserResourceModel struct {
-	ID           types.String `tfsdk:"id"`
-	Name         types.String `tfsdk:"name"`
-	Host         types.String `tfsdk:"host"`
-	AuthOption   types.Object `tfsdk:"auth_option"`
+	ID         types.String `tfsdk:"id"`
+	Name       types.String `tfsdk:"name"`
+	Host       types.String `tfsdk:"host"`
+	AuthOption types.Object `tfsdk:"auth_option"`
 }
 
 type AuthOptionModel struct {
@@ -61,7 +61,7 @@ func (r *UserResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 		MarkdownDescription: "user resource",
 
 		Attributes: map[string]schema.Attribute{
-			"id": utils.IDAttribute(),
+			"id":   utils.IDAttribute(),
 			"name": utils.NameAttribute(),
 			"host": utils.HostAttribute(),
 		},

@@ -3,7 +3,6 @@ package provider
 import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-
 )
 
 type UserModel struct {

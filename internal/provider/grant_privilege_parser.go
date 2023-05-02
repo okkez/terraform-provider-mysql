@@ -56,7 +56,7 @@ func (v *GrantPrivilege) PrivString() string {
 			for _, col := range priv.Cols {
 				columnNames = append(columnNames, col.Name.O)
 			}
-			privs = append(privs, s + " " + strings.Join(columnNames, ","))
+			privs = append(privs, s+" "+strings.Join(columnNames, ","))
 		} else {
 			privs = append(privs, priv.Priv.String())
 		}

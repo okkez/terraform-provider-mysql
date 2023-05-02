@@ -46,7 +46,7 @@ func (d *tablesDataSource) Schema(_ context.Context, req datasource.SchemaReques
 			},
 			"pattern": schema.StringAttribute{
 				MarkdownDescription: "",
-				Optional: true,
+				Optional:            true,
 			},
 			"tables": schema.SetAttribute{
 				MarkdownDescription: "",
@@ -72,7 +72,7 @@ func (d *tablesDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 		resp.Diagnostics.AddError("Failed quoting identifier", err.Error())
 		return
 	}
-	
+
 	sql := fmt.Sprintf("SHOW TABLES FROM %s", database)
 	var args []interface{}
 	if !data.Pattern.IsNull() {

@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"net"
-
-	// "net/url"
 	"os"
 	"strings"
 	"sync"
@@ -47,7 +45,7 @@ type mysqlProviderModel struct {
 }
 
 type OneConnection struct {
-	Db *sql.DB
+	Db      *sql.DB
 	Version *version.Version
 }
 
@@ -84,12 +82,12 @@ func (p *mysqlProvider) Schema(ctx context.Context, req provider.SchemaRequest, 
 			},
 			"username": schema.StringAttribute{
 				MarkdownDescription: "",
-				Optional: true,
+				Optional:            true,
 			},
 			"password": schema.StringAttribute{
 				MarkdownDescription: "",
-				Optional: true,
-				Sensitive: true,
+				Optional:            true,
+				Sensitive:           true,
 			},
 		},
 	}
@@ -141,15 +139,15 @@ func (p *mysqlProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	tflog.Debug(ctx, "Creating MySQL client")
 
 	conf := mysql.Config{
-		User: username,
-		Passwd: password,
-		Net: "tcp",
-		Addr: endpoint,
-		TLSConfig: "false",
-		AllowNativePasswords: true,
+		User:                    username,
+		Passwd:                  password,
+		Net:                     "tcp",
+		Addr:                    endpoint,
+		TLSConfig:               "false",
+		AllowNativePasswords:    true,
 		AllowCleartextPasswords: false,
-		InterpolateParams: true,
-		Params: map[string]string{},
+		InterpolateParams:       true,
+		Params:                  map[string]string{},
 	}
 
 	dialer, err := makeDialer(&data)
@@ -168,7 +166,7 @@ func (p *mysqlProvider) Configure(ctx context.Context, req provider.ConfigureReq
 
 	mysqlConf := &MySQLConfiguration{
 		Config:                 &conf,
-		MaxConnLifetime:        time.Duration(8 * 60 * 60) * time.Second,
+		MaxConnLifetime:        time.Duration(8*60*60) * time.Second,
 		MaxOpenConns:           5,
 		ConnectRetryTimeoutSec: time.Duration(300) * time.Second,
 	}
@@ -217,7 +215,7 @@ func makeDialer(data *mysqlProviderModel) (proxy.Dialer, error) {
 	// 	}
 	// 	return proxyDialer, nil
 	// }
-	
+
 	return proxyFromEnv, nil
 }
 

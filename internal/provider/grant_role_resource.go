@@ -119,7 +119,7 @@ func (r *GrantRoleResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	data.ID = types.StringValue(fmt.Sprintf("%s@%s", userOrRole.Name.ValueString(), userOrRole.Host.ValueString()))
-	
+
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

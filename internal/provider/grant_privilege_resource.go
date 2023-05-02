@@ -57,7 +57,7 @@ type PrivilegeTypeModel struct {
 
 var PrivlilegeTypeModelTypes = map[string]attr.Type{
 	"priv_type": types.StringType,
-	"columns":   types.SetType{ ElemType: types.StringType },
+	"columns":   types.SetType{ElemType: types.StringType},
 }
 
 type PrivilegeLevelModel struct {
@@ -255,7 +255,7 @@ func (r *GrantPrivilegeResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("%+v\n", privileges))
-	
+
 	data.Privileges = types.SetValueMust(types.ObjectType{AttrTypes: PrivlilegeTypeModelTypes}, privileges)
 
 	// Save updated data into Terraform state
@@ -428,7 +428,7 @@ func buildPrivilege(ctx context.Context, db *sql.DB, privilege PrivilegeTypeMode
 func grantPrivileges(ctx context.Context, db *sql.DB, privileges []PrivilegeTypeModel, privilegeLevel PrivilegeLevelModel, userOrRole UserModel, grantOption bool) error {
 	var args []interface{}
 	sql := `GRANT `
-	
+
 	var privilegesWithColumns []string
 
 	for _, privilege := range privileges {
@@ -475,7 +475,7 @@ func grantPrivileges(ctx context.Context, db *sql.DB, privileges []PrivilegeType
 func revokePrivileges(ctx context.Context, db *sql.DB, privileges []PrivilegeTypeModel, privilegeLevel PrivilegeLevelModel, userOrRole UserModel, grantOption bool) error {
 	var args []interface{}
 	sql := `REVOKE `
-	
+
 	var privilegesWithColumns []string
 	for _, privilege := range privileges {
 		priv, err := buildPrivilege(ctx, db, privilege)
@@ -486,7 +486,7 @@ func revokePrivileges(ctx context.Context, db *sql.DB, privileges []PrivilegeTyp
 	}
 
 	sql += strings.Join(privilegesWithColumns, ",")
-	
+
 	if grantOption {
 		sql += `,GRANT OPTION`
 	}
