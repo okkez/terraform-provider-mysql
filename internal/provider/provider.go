@@ -278,7 +278,7 @@ func connectToMySQLInternal(ctx context.Context, conf *MySQLConfiguration) (*One
 	db.SetConnMaxLifetime(conf.MaxConnLifetime)
 	db.SetMaxOpenConns(conf.MaxOpenConns)
 
-	currentVersion, err := afterConnectVersion(ctx, conf, db)
+	currentVersion, err := afterConnectVersion(ctx, db)
 	tflog.Info(ctx, currentVersion.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed running after connect command: %v", err)
@@ -292,7 +292,7 @@ func connectToMySQLInternal(ctx context.Context, conf *MySQLConfiguration) (*One
 	return connectionCache[dsn], nil
 }
 
-func afterConnectVersion(ctx context.Context, mysqlConf *MySQLConfiguration, db *sql.DB) (*version.Version, error) {
+func afterConnectVersion(ctx context.Context, db *sql.DB) (*version.Version, error) {
 	// Set up env so that we won't create users randomly.
 	tflog.Info(ctx, "AAA Running after connect")
 	currentVersion, err := serverVersion(db)
