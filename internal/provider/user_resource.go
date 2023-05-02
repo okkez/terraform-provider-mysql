@@ -5,20 +5,16 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	// "github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+
+	"github.com/okkez/terraform-provider-mysql/internal/utils"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -44,7 +40,7 @@ type UserResource struct {
 // UserResourceModel describes the resource data model.
 type UserResourceModel struct {
 	ID           types.String `tfsdk:"id"`
-	User         types.String `tfsdk:"user"`
+	Name         types.String `tfsdk:"name"`
 	Host         types.String `tfsdk:"host"`
 	AuthOption   types.Object `tfsdk:"auth_option"`
 }
@@ -53,16 +49,6 @@ type AuthOptionModel struct {
 	Plugin         types.String `tfsdk:"plugin"`
 	AuthString     types.String `tfsdk:"auth_string"`
 	RandomPassword types.Bool   `tfsdk:"random_password"`
-}
-
-type RoleModel struct {
-	Name types.String `tfsdk:"name"`
-	Host types.String `tfsdk:"host"`
-}
-
-var RoleTypes = map[string]attr.Type{
-	"name": types.StringType,
-	"host": types.StringType,
 }
 
 func (r *UserResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -75,35 +61,9 @@ func (r *UserResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 		MarkdownDescription: "user resource",
 
 		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
-				MarkdownDescription: "user identifier",
-				Computed:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"user": schema.StringAttribute{
-				MarkdownDescription: "",
-				Required:            true,
-				Validators: []validator.String{
-					stringvalidator.LengthAtMost(32),
-				},
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"host": schema.StringAttribute{
-				MarkdownDescription: "",
-				Optional:            true,
-				Computed:            true,
-				Default:             stringdefault.StaticString("%"),
-				Validators: []validator.String{
-					stringvalidator.LengthAtMost(255),
-				},
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
+			"id": utils.IDAttribute(),
+			"name": utils.NameAttribute(),
+			"host": utils.HostAttribute(),
 		},
 		Blocks: map[string]schema.Block{
 			"auth_option": schema.SingleNestedBlock{
@@ -160,7 +120,7 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 	callExec := true
 	var args []interface{}
-	args = append(args, data.User.ValueString())
+	args = append(args, data.Name.ValueString())
 	args = append(args, data.Host.ValueString())
 	sql := `CREATE USER ?@?`
 	if !data.AuthOption.IsNull() {
@@ -213,7 +173,7 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 		}
 	}
 
-	data.ID = types.StringValue(fmt.Sprintf("%s@%s", data.User.ValueString(), data.Host.ValueString()))
+	data.ID = types.StringValue(fmt.Sprintf("%s@%s", data.Name.ValueString(), data.Host.ValueString()))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -231,7 +191,7 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	user := data.User.ValueString()
+	user := data.Name.ValueString()
 	host := data.Host.ValueString()
 	var args []interface{}
 	args = append(args, host)
@@ -244,7 +204,7 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		resp.State.RemoveResource(ctx)
 		return
 	} else {
-		data.User = types.StringValue(user)
+		data.Name = types.StringValue(user)
 		data.Host = types.StringValue(host)
 	}
 
@@ -266,7 +226,7 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	}
 
 	var args []interface{}
-	args = append(args, data.User.ValueString())
+	args = append(args, data.Name.ValueString())
 
 	sql := `ALTER USER ?`
 	if !data.Host.IsNull() {
@@ -332,7 +292,7 @@ func (r *UserResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		return
 	}
 
-	user := data.User.ValueString()
+	user := data.Name.ValueString()
 	host := data.Host.ValueString()
 
 	sql := `DROP USER ?@?`
