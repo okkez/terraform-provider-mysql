@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/go-version"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -35,4 +36,20 @@ func quoteIdentifier(ctx context.Context, db *sql.DB, identifier string) (string
 		return "", err
 	}
 	return quotedIdentifier, nil
+}
+
+func quoteIdentifiers(ctx context.Context, db *sql.DB, identifiers ...string) ([]string, error) {
+	originalIdentifiers := make([]interface{}, len(identifiers))
+	quotedIdentifiers := make([]string, len(identifiers))
+	placeholders := make([]string, len(identifiers))
+	for i, _ := range identifiers {
+		originalIdentifiers[i] = identifiers[i]
+		placeholders[i] = "sys.quote_identifier(?)"
+	}
+	sql := fmt.Sprintf(`SELECT %s`, strings.Join(placeholders, ","))
+
+	if err := db.QueryRowContext(ctx, sql, originalIdentifiers...).Scan(&quotedIdentifiers); err != nil {
+		return nil, err
+	}
+	return quotedIdentifiers, nil
 }
