@@ -16,7 +16,7 @@ func TestAccUserResource(t *testing.T) {
 			{
 				Config: testAccUserResourceConfig("test-user-one"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mysql_user.test", "user", "test-user-one"),
+					resource.TestCheckResourceAttr("mysql_user.test", "name", "test-user-one"),
 					resource.TestCheckResourceAttr("mysql_user.test", "id", "test-user-one@%"),
 				),
 			},
@@ -30,7 +30,7 @@ func TestAccUserResource(t *testing.T) {
 			{
 				Config: testAccUserResourceConfig("test-user-two"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mysql_user.test", "user", "test-user-two"),
+					resource.TestCheckResourceAttr("mysql_user.test", "name", "test-user-two"),
 					resource.TestCheckResourceAttr("mysql_user.test", "id", "test-user-two@%"),
 				),
 			},
@@ -39,11 +39,11 @@ func TestAccUserResource(t *testing.T) {
 	})
 }
 
-func testAccUserResourceConfig(user string) string {
+func testAccUserResourceConfig(name string) string {
 	config := fmt.Sprintf(`
 resource "mysql_user" "test" {
-  user = "%s"
+  name = %q
 }
-`, user)
+`, name)
 	return buildConfig(config)
 }
