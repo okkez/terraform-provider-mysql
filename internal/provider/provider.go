@@ -131,12 +131,37 @@ func (p *mysqlProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		password = data.Password.ValueString()
 	}
 
+	if len(endpoint) == 0 {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("endpoint"),
+			"Missing required configuration",
+			`You must set provider configuration by provider "mysql" block or environment variable "MYSQL_ENDPOINT"`,
+		)
+	}
+	if len(username) == 0 {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("username"),
+			"Missing required configuration",
+			`You must set provider configuration by provider "mysql" block or environment variable "MYSQL_USERNAME"`,
+		)
+	}
+	if len(password) == 0 {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("endpoint"),
+			"Missing required configuration",
+			`You must set provider configuration by provider "mysql" block or environment variable "MYSQL_PASSWORD"`,
+		)
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	ctx = tflog.SetField(ctx, "mysql_endpoint", endpoint)
 	ctx = tflog.SetField(ctx, "mysql_username", username)
 	ctx = tflog.SetField(ctx, "mysql_password", password)
 	ctx = tflog.MaskFieldValuesWithFieldKeys(ctx, "mysql_password")
 
-	tflog.Debug(ctx, "Creating MySQL client")
+	tflog.Debug(ctx, "Creating MySQL client", map[string]any{"mysql_endpoint": endpoint, "mysql_username": username, "mysql_password": password})
 
 	conf := mysql.Config{
 		User:                    username,
