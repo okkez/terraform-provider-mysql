@@ -3,12 +3,15 @@ package provider
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+
+	"github.com/okkez/terraform-provider-mysql/internal/utils"
 )
 
 // testAccProtoV6ProviderFactories are used to instantiate a provider during
@@ -26,20 +29,23 @@ func testAccPreCheck(t *testing.T) {
 }
 
 func buildConfig(config string) string {
-	return `
+	endpoint := utils.GetenvWithDefault("MYSQL_ENDPOINT", "localhost:3306")
+	username := utils.GetenvWithDefault("MYSQL_USERNAME", "root")
+	password := utils.GetenvWithDefault("MYSQL_PASSWORD", "password")
+	return fmt.Sprintf(`
 terraform {
   required_providers {
     mysql = {
-      source = "registry.terraform.io/okkez/mysql"
+      source = "okkez/mysql"
     }
   }
 }
 provider "mysql" {
-  endpoint = "localhost:33306"
-  username = "root"
-  password = "password"
+  endpoint = %q
+  username = %q
+  password = %q
 }
-` + config
+`, endpoint, username, password) + config
 }
 
 func testDatabase() *sql.DB {
@@ -52,11 +58,14 @@ func testDatabase() *sql.DB {
 }
 
 func testMySQLConfig() *MySQLConfiguration {
+	endpoint := utils.GetenvWithDefault("MYSQL_ENDPOINT", "localhost:3306")
+	username := utils.GetenvWithDefault("MYSQL_USERNAME", "root")
+	password := utils.GetenvWithDefault("MYSQL_PASSWORD", "password")
 	conf := mysql.Config{
-		User:      "root",
-		Passwd:    "password",
+		User:      username,
+		Passwd:    password,
 		Net:       "tcp",
-		Addr:      "localhost:33306",
+		Addr:      endpoint,
 		TLSConfig: "false",
 	}
 	return &MySQLConfiguration{
