@@ -2,24 +2,30 @@ package provider
 
 import (
 	"fmt"
+	"math/rand"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func TestAccDefaultRoleResource(t *testing.T) {
+	user := NewUser(fmt.Sprintf("test-user-%d", rand.Intn(1000)), "%")
+	role1 := fmt.Sprintf("test-role-%d", rand.Intn(1000))
+	role2 := fmt.Sprintf("test-role-%d", rand.Intn(1000))
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
+		CheckDestroy: testAccTestAccDefaultRoleResource_CheckDestroy(user),
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccDefaultRoleResourceConfig("test-user", "test-role"),
+				Config: testAccDefaultRoleResource_Config(user.GetName(), role1),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mysql_default_role.test", "id", "test-user@%"),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "user", "test-user"),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "host", "%"),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.name", "test-role"),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "id", user.GetID()),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "user", user.GetName()),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "host", user.GetHost()),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.name", role1),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.host", "%"),
 				),
 			},
@@ -31,10 +37,25 @@ func TestAccDefaultRoleResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccDefaultRoleResourceConfig("test-user", "test-role2"),
+				Config: testAccDefaultRoleResource_Config(user.GetName(), role2),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.name", "test-role2"),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "id", user.GetID()),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "user", user.GetName()),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "host", user.GetHost()),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.name", role2),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.host", "%"),
+				),
+			},
+			{
+				Config: testAccDefaultRoleResource_ConfigWithRoles(user.GetName(), role1, role2),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_default_role.test", "id", user.GetID()),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "user", user.GetName()),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "host", user.GetHost()),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.name", role1),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.host", "%"),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.1.name", role2),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.1.host", "%"),
 				),
 			},
 			// Delete testing automatically occurs in TestCase
@@ -42,13 +63,58 @@ func TestAccDefaultRoleResource(t *testing.T) {
 	})
 }
 
-func testAccDefaultRoleResourceConfig(user, role string) string {
+func testAccDefaultRoleResource_Config(user, role string) string {
 	return fmt.Sprintf(`
+resource "mysql_user" "test" {
+  name = %q
+}
+resource "mysql_role" "test" {
+  name = %q
+}
 resource "mysql_default_role" "test" {
-  user = %q
+  user = mysql_user.test.name
   default_role {
-    name = %q
+    name = mysql_role.test.name
   }
 }
 `, user, role)
+}
+
+func testAccDefaultRoleResource_ConfigWithRoles(user, role1, role2 string) string {
+	return fmt.Sprintf(`
+resource "mysql_user" "test" {
+  name = %q
+}
+resource "mysql_role" "test1" {
+  name = %q
+}
+resource "mysql_role" "test2" {
+  name = %q
+}
+resource "mysql_default_role" "test" {
+  user = mysql_user.test.name
+  default_role {
+    name = mysql_role.test1.name
+  }
+  default_role {
+    name = mysql_role.test2.name
+  }
+}
+`, user, role1, role2)
+}
+
+
+func testAccTestAccDefaultRoleResource_CheckDestroy(user UserModel) resource.TestCheckFunc {
+	return func(t *terraform.State) error {
+		db := testDatabase()
+		sql := `SELECT COUNT(*) FROM mysql.default_roles WHERE USER = ? AND HOST = ?`
+		var count string
+		if err := db.QueryRow(sql, user.GetName(), user.GetHost()).Scan(&count); err != nil {
+			return err
+		}
+		if count != "0" {
+			return fmt.Errorf("Default roles still exist (%s)", user.GetID())
+		}
+		return nil
+	}
 }
