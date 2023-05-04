@@ -9,15 +9,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
-type testRole struct{
-	name string
-	host string
-}
-
 func TestAccRoleResource(t *testing.T) {
-	roles := []testRole{}
-	roles = append(roles, testRole{name: fmt.Sprintf("test-role-%d", rand.Intn(100)), host: "%"})
-	roles = append(roles, testRole{name: fmt.Sprintf("test-role-%d", rand.Intn(100)), host: "example.com"})
+	roles := []RoleModel{}
+	roles = append(roles, NewRole(fmt.Sprintf("test-role-%d", rand.Intn(100)), "%"))
+	roles = append(roles, NewRole(fmt.Sprintf("test-role-%d", rand.Intn(100)), "example.com"))
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		CheckDestroy: testAccRoleResource_CheckDestroy(roles),
@@ -25,11 +20,11 @@ func TestAccRoleResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccRoleResourceConfig(roles[0].name),
+				Config: testAccRoleResource_Config(roles[0].Name.ValueString()),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mysql_role.test", "name", roles[0].name),
-					resource.TestCheckResourceAttr("mysql_role.test", "host", roles[0].host),
-					resource.TestCheckResourceAttr("mysql_role.test", "id", fmt.Sprintf("%s@%s", roles[0].name, roles[0].host)),
+					resource.TestCheckResourceAttr("mysql_role.test", "name", roles[0].GetName()),
+					resource.TestCheckResourceAttr("mysql_role.test", "host", roles[0].GetHost()),
+					resource.TestCheckResourceAttr("mysql_role.test", "id", fmt.Sprintf("%s@%s", roles[0].GetName(), roles[0].GetHost())),
 				),
 			},
 			// ImportState testing
@@ -40,11 +35,11 @@ func TestAccRoleResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccRoleResourceConfigWithHost(roles[1].name, roles[1].host),
+				Config: testAccRoleResource_ConfigWithHost(roles[1].GetName(), roles[1].GetHost()),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mysql_role.test", "name", roles[1].name),
-					resource.TestCheckResourceAttr("mysql_role.test", "host", roles[1].host),
-					resource.TestCheckResourceAttr("mysql_role.test", "id", fmt.Sprintf("%s@%s", roles[1].name, roles[1].host)),
+					resource.TestCheckResourceAttr("mysql_role.test", "name", roles[1].GetName()),
+					resource.TestCheckResourceAttr("mysql_role.test", "host", roles[1].GetHost()),
+					resource.TestCheckResourceAttr("mysql_role.test", "id", fmt.Sprintf("%s@%s", roles[1].GetName(), roles[1].GetHost())),
 				),
 			},
 			// Delete testing automatically occurs in TestCase
@@ -52,7 +47,7 @@ func TestAccRoleResource(t *testing.T) {
 	})
 }
 
-func testAccRoleResourceConfig(name string) string {
+func testAccRoleResource_Config(name string) string {
 	config := fmt.Sprintf(`
 resource "mysql_role" "test" {
   name = %q
@@ -61,7 +56,7 @@ resource "mysql_role" "test" {
 	return buildConfig(config)
 }
 
-func testAccRoleResourceConfigWithHost(name, host string) string {
+func testAccRoleResource_ConfigWithHost(name, host string) string {
 	config := fmt.Sprintf(`
 resource "mysql_role" "test" {
   name = %q
@@ -71,17 +66,17 @@ resource "mysql_role" "test" {
 	return buildConfig(config)
 }
 
-func testAccRoleResource_CheckDestroy(roles []testRole) resource.TestCheckFunc {
+func testAccRoleResource_CheckDestroy(roles []RoleModel) resource.TestCheckFunc {
 	return func(t *terraform.State) error {
 		db := testDatabase()
 		sql := "SELECT COUNT(*) FROM mysql.user WHERE user = ? AND host = ?"
 		for _, role := range roles {
 			var count string
-			if err := db.QueryRow(sql, role.name, role.host).Scan(&count); err != nil {
+			if err := db.QueryRow(sql, role.GetName(), role.GetHost()).Scan(&count); err != nil {
 				return err
 			}
 			if count != "0" {
-				return fmt.Errorf("Role still exist (%s@%s): %s", role.name, role.host, count)
+				return fmt.Errorf("Role still exist (%s@%s): %s", role.GetName(), role.GetHost(), count)
 			}
 		}
 		return nil
