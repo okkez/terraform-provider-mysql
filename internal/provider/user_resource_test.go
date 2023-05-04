@@ -2,22 +2,30 @@ package provider
 
 import (
 	"fmt"
+	"math/rand"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func TestAccUserResource(t *testing.T) {
+	users := []UserModel{
+		NewUser(fmt.Sprintf("test-user-%d", rand.Intn(1000)), "%"),
+		NewUser(fmt.Sprintf("test-user-%d", rand.Intn(1000)), "%"),
+		NewUser(fmt.Sprintf("test-user-%d", rand.Intn(1000)), "example.com"),
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
+		CheckDestroy:             testAccUserResource_CheckDestroy(users),
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccUserResourceConfig("test-user-one"),
+				Config: testAccUserResource_Config(users[0].GetName()),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mysql_user.test", "name", "test-user-one"),
-					resource.TestCheckResourceAttr("mysql_user.test", "id", "test-user-one@%"),
+					resource.TestCheckResourceAttr("mysql_user.test", "name", users[0].GetName()),
+					resource.TestCheckResourceAttr("mysql_user.test", "id", users[0].GetID()),
 				),
 			},
 			// ImportState testing
@@ -28,10 +36,27 @@ func TestAccUserResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccUserResourceConfig("test-user-two"),
+				Config: testAccUserResource_Config(users[1].GetName()),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mysql_user.test", "name", "test-user-two"),
-					resource.TestCheckResourceAttr("mysql_user.test", "id", "test-user-two@%"),
+					resource.TestCheckResourceAttr("mysql_user.test", "name", users[1].GetName()),
+					resource.TestCheckResourceAttr("mysql_user.test", "id", users[1].GetID()),
+				),
+			},
+			{
+				Config: testAccUserResource_ConfigWithHost(users[2].GetName(), users[2].GetHost()),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_user.test", "name", users[2].GetName()),
+					resource.TestCheckResourceAttr("mysql_user.test", "host", users[2].GetHost()),
+					resource.TestCheckResourceAttr("mysql_user.test", "id", users[2].GetID()),
+				),
+			},
+			{
+				Config: testAccUserResource_ConfigWithAuth(users[2].GetName(), users[2].GetHost()),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_user.test", "name", users[2].GetName()),
+					resource.TestCheckResourceAttr("mysql_user.test", "host", users[2].GetHost()),
+					resource.TestCheckResourceAttr("mysql_user.test", "id", users[2].GetID()),
+					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.auth_string", "password"),
 				),
 			},
 			// Delete testing automatically occurs in TestCase
@@ -39,11 +64,53 @@ func TestAccUserResource(t *testing.T) {
 	})
 }
 
-func testAccUserResourceConfig(name string) string {
+func testAccUserResource_Config(name string) string {
 	config := fmt.Sprintf(`
 resource "mysql_user" "test" {
   name = %q
 }
 `, name)
 	return buildConfig(config)
+}
+
+func testAccUserResource_ConfigWithHost(name, host string) string {
+	config := fmt.Sprintf(`
+resource "mysql_user" "test" {
+  name = %q
+  host = %q
+}
+`, name, host)
+	return buildConfig(config)
+}
+
+func testAccUserResource_ConfigWithAuth(name, host string) string {
+	config := fmt.Sprintf(`
+resource "mysql_user" "test" {
+  name = %q
+  host = %q
+  auth_option {
+    auth_string = "password"
+  }
+}
+`, name, host)
+	return buildConfig(config)
+}
+
+
+
+func testAccUserResource_CheckDestroy(users []UserModel) resource.TestCheckFunc {
+	return func(t *terraform.State) error {
+		db := testDatabase()
+		sql := "SELECT COUNT(*) FROM mysql.user WHERE user = ? AND host = ?"
+		for _, user := range users {
+			var count string
+			if err := db.QueryRow(sql, user.GetName(), user.GetHost()).Scan(&count); err != nil {
+				return err
+			}
+			if count != "0" {
+				return fmt.Errorf("User still exist (%s): %s", user.GetID(), count)
+			}
+		}
+		return nil
+	}
 }
