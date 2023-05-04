@@ -37,14 +37,14 @@ func TestAccGlobalVariableResource(t *testing.T) {
 			},
 			// Delete testing automatically occurs in TestCase
 		},
-		CheckDestroy: func(t *terraform.State) error {
+		CheckDestroy: func(s *terraform.State) error {
 			db := testDatabase()
 			var value string
 			if err := db.QueryRow(`SELECT @@GLOBAL.binlog_format`).Scan(&value); err != nil {
 				return err
 			}
 			if value != "ROW" {
-				return fmt.Errorf(`expected "ROW" but wat %q`, value)
+				return fmt.Errorf(`expected "ROW" but was %q`, value)
 			}
 			return nil
 		},
