@@ -1,6 +1,8 @@
 package provider
 
 import (
+	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -33,4 +35,8 @@ func (r *RoleModel) GetName() string {
 
 func (r *RoleModel) GetHost() string {
 	return r.Host.ValueString()
+}
+
+func (r *RoleModel) GetID() string {
+	return fmt.Sprintf("%s@%s", r.GetName(), r.GetHost())
 }

@@ -24,7 +24,7 @@ func TestAccRoleResource(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_role.test", "name", roles[0].GetName()),
 					resource.TestCheckResourceAttr("mysql_role.test", "host", roles[0].GetHost()),
-					resource.TestCheckResourceAttr("mysql_role.test", "id", fmt.Sprintf("%s@%s", roles[0].GetName(), roles[0].GetHost())),
+					resource.TestCheckResourceAttr("mysql_role.test", "id", roles[0].GetID()),
 				),
 			},
 			// ImportState testing
@@ -39,7 +39,7 @@ func TestAccRoleResource(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_role.test", "name", roles[1].GetName()),
 					resource.TestCheckResourceAttr("mysql_role.test", "host", roles[1].GetHost()),
-					resource.TestCheckResourceAttr("mysql_role.test", "id", fmt.Sprintf("%s@%s", roles[1].GetName(), roles[1].GetHost())),
+					resource.TestCheckResourceAttr("mysql_role.test", "id", roles[1].GetID()),
 				),
 			},
 			// Delete testing automatically occurs in TestCase
@@ -76,7 +76,7 @@ func testAccRoleResource_CheckDestroy(roles []RoleModel) resource.TestCheckFunc 
 				return err
 			}
 			if count != "0" {
-				return fmt.Errorf("Role still exist (%s@%s): %s", role.GetName(), role.GetHost(), count)
+				return fmt.Errorf("Role still exist (%s): %s", role.GetID(), count)
 			}
 		}
 		return nil
