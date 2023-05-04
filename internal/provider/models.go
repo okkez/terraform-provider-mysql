@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"math/rand"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -17,6 +18,10 @@ func NewUser(name, host string) UserModel {
 		Name: types.StringValue(name),
 		Host: types.StringValue(host),
 	}
+}
+
+func NewRandomUser(prefix, host string) UserModel {
+	return NewUser(fmt.Sprintf("%s-%04d", prefix, rand.Intn(1000)), host)
 }
 
 func (u *UserModel) GetName() string {
@@ -47,6 +52,10 @@ func NewRole(name, host string) RoleModel {
 		Name: types.StringValue(name),
 		Host: types.StringValue(host),
 	}
+}
+
+func NewRandomRole(prefix, host string) RoleModel {
+	return NewRole(fmt.Sprintf("%s-%04d", prefix, rand.Intn(1000)), host)
 }
 
 func (r *RoleModel) GetName() string {

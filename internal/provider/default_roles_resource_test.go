@@ -2,7 +2,6 @@ package provider
 
 import (
 	"fmt"
-	"math/rand"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -10,9 +9,9 @@ import (
 )
 
 func TestAccDefaultRoleResource(t *testing.T) {
-	user := NewUser(fmt.Sprintf("test-user-%d", rand.Intn(1000)), "%")
-	role1 := fmt.Sprintf("test-role-%d", rand.Intn(1000))
-	role2 := fmt.Sprintf("test-role-%d", rand.Intn(1000))
+	user := NewRandomUser("test-user", "%")
+	role1 := NewRandomRole("test-role", "%")
+	role2 := NewRandomRole("test-role", "%")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		CheckDestroy: testAccTestAccDefaultRoleResource_CheckDestroy(user),
@@ -20,12 +19,12 @@ func TestAccDefaultRoleResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccDefaultRoleResource_Config(user.GetName(), role1),
+				Config: testAccDefaultRoleResource_Config(user.GetName(), role1.GetName()),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_default_role.test", "id", user.GetID()),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "user", user.GetName()),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "host", user.GetHost()),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.name", role1),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.name", role1.GetName()),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.host", "%"),
 				),
 			},
@@ -37,24 +36,24 @@ func TestAccDefaultRoleResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccDefaultRoleResource_Config(user.GetName(), role2),
+				Config: testAccDefaultRoleResource_Config(user.GetName(), role2.GetName()),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_default_role.test", "id", user.GetID()),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "user", user.GetName()),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "host", user.GetHost()),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.name", role2),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.name", role2.GetName()),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.host", "%"),
 				),
 			},
 			{
-				Config: testAccDefaultRoleResource_ConfigWithRoles(user.GetName(), role1, role2),
+				Config: testAccDefaultRoleResource_ConfigWithRoles(user.GetName(), role1.GetName(), role2.GetName()),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_default_role.test", "id", user.GetID()),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "user", user.GetName()),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "host", user.GetHost()),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.name", role1),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.name", role1.GetName()),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.host", "%"),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.1.name", role2),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.1.name", role2.GetName()),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.1.host", "%"),
 				),
 			},

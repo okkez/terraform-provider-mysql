@@ -2,7 +2,6 @@ package provider
 
 import (
 	"fmt"
-	"math/rand"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -11,9 +10,9 @@ import (
 
 func TestAccUserResource(t *testing.T) {
 	users := []UserModel{
-		NewUser(fmt.Sprintf("test-user-%d", rand.Intn(1000)), "%"),
-		NewUser(fmt.Sprintf("test-user-%d", rand.Intn(1000)), "%"),
-		NewUser(fmt.Sprintf("test-user-%d", rand.Intn(1000)), "example.com"),
+		NewRandomUser("test-user", "%"),
+		NewRandomUser("test-user", "%"),
+		NewRandomUser("test-user", "example.com"),
 	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },

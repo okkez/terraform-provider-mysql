@@ -2,7 +2,6 @@ package provider
 
 import (
 	"fmt"
-	"math/rand"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -11,8 +10,8 @@ import (
 
 func TestAccRoleResource(t *testing.T) {
 	roles := []RoleModel{}
-	roles = append(roles, NewRole(fmt.Sprintf("test-role-%d", rand.Intn(100)), "%"))
-	roles = append(roles, NewRole(fmt.Sprintf("test-role-%d", rand.Intn(100)), "example.com"))
+	roles = append(roles, NewRandomRole("test-role", "%"))
+	roles = append(roles, NewRandomRole("test-role", "example.com"))
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		CheckDestroy: testAccRoleResource_CheckDestroy(roles),
