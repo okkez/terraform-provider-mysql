@@ -8,35 +8,51 @@ import (
 )
 
 func TestAccGrantRoleResource(t *testing.T) {
+	user := NewRandomUser("test-user", "%")
+	role1 := NewRandomRole("test-role1", "%")
+	role2 := NewRandomRole("test-role2", "%")
+	t.Logf("user: %s, role1: %s, role2: %s", user.GetName(), role1.GetName(), role2.GetName())
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccGrantRoleResourceConfig("one"),
+				Config: testAccGrantRoleResource_Config(user.GetName(), role1.GetName(), role2.GetName(), "role1"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("scaffolding_example.test", "configurable_attribute", "one"),
-					resource.TestCheckResourceAttr("scaffolding_example.test", "defaulted", "example value when not configured"),
-					resource.TestCheckResourceAttr("scaffolding_example.test", "id", "example-id"),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "to.name", user.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "to.host", user.GetHost()),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "roles.#", "1"),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "roles.0", role1.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "id", user.GetID()),
 				),
 			},
 			// ImportState testing
 			{
-				ResourceName:      "scaffolding_example.test",
+				ResourceName:      "mysql_grant_role.test",
 				ImportState:       true,
 				ImportStateVerify: true,
-				// This is not normally necessary, but is here because this
-				// example code does not have an actual upstream service.
-				// Once the Read method is able to refresh information from
-				// the upstream service, this can be removed.
-				ImportStateVerifyIgnore: []string{"configurable_attribute", "defaulted"},
 			},
 			// Update and Read testing
 			{
-				Config: testAccGrantRoleResourceConfig("two"),
+				Config: testAccGrantRoleResource_Config(user.GetName(), role1.GetName(), role2.GetName(), "role2"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("scaffolding_example.test", "configurable_attribute", "two"),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "to.name", user.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "to.host", user.GetHost()),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "roles.#", "1"),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "roles.0", role2.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "id", user.GetID()),
+				),
+			},
+			{
+				Config: testAccGrantRoleResource_ConfigWithRoles(user.GetName(), role1.GetName(), role2.GetName()),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "to.name", user.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "to.host", user.GetHost()),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "roles.#", "2"),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "roles.0", role1.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "roles.1", role2.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "id", user.GetID()),
 				),
 			},
 			// Delete testing automatically occurs in TestCase
@@ -44,10 +60,44 @@ func TestAccGrantRoleResource(t *testing.T) {
 	})
 }
 
-func testAccGrantRoleResourceConfig(configurableAttribute string) string {
-	return fmt.Sprintf(`
-resource "scaffolding_example" "test" {
-  configurable_attribute = %[1]q
+func testAccGrantRoleResource_Config(user, role1, role2, roleLabel string) string {
+	config := fmt.Sprintf(`
+resource "mysql_user" "test" {
+  name = %q
 }
-`, configurableAttribute)
+resource "mysql_role" "role1" {
+  name = %q
+}
+resource "mysql_role" "role2" {
+  name = %q
+}
+resource "mysql_grant_role" "test" {
+  to {
+    name = mysql_user.test.name
+  }
+  roles = [mysql_role.%s.name]
+}
+`, user, role1, role2, roleLabel)
+	return buildConfig(config)
+}
+
+func testAccGrantRoleResource_ConfigWithRoles(user, role1, role2 string) string {
+	config := fmt.Sprintf(`
+resource "mysql_user" "test" {
+  name = %q
+}
+resource "mysql_role" "role1" {
+  name = %q
+}
+resource "mysql_role" "role2" {
+  name = %q
+}
+resource "mysql_grant_role" "test" {
+  to {
+    name = mysql_user.test.name
+  }
+  roles = [mysql_role.role1.name, mysql_role.role2.name]
+}
+`, user, role1, role2)
+	return buildConfig(config)
 }

@@ -243,7 +243,7 @@ func (r *GrantRoleResource) Update(ctx context.Context, req resource.UpdateReque
 		err := revokeRoles(ctx, db, userOrRole, rolesToRevoke)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				fmt.Sprintf("Failed executing REVOKE statement (%s@%s)", userOrRole.Name.ValueString(), userOrRole.Host.ValueString()),
+				fmt.Sprintf("[Update] Failed executing REVOKE statement (%s@%s)", userOrRole.Name.ValueString(), userOrRole.Host.ValueString()),
 				err.Error())
 			return
 		}
@@ -253,7 +253,7 @@ func (r *GrantRoleResource) Update(ctx context.Context, req resource.UpdateReque
 		err := grantRoles(ctx, db, userOrRole, rolesToGrant, data.AdminOption.ValueBool())
 		if err != nil {
 			resp.Diagnostics.AddError(
-				fmt.Sprintf("Failed executing GRANT statement (%s@%s)", userOrRole.Name.ValueString(), userOrRole.Host.ValueString()),
+				fmt.Sprintf("[Update] Failed executing GRANT statement (%s@%s)", userOrRole.Name.ValueString(), userOrRole.Host.ValueString()),
 				err.Error())
 			return
 		}
@@ -288,7 +288,7 @@ func (r *GrantRoleResource) Delete(ctx context.Context, req resource.DeleteReque
 
 	if err != nil {
 		resp.Diagnostics.AddError(
-			fmt.Sprintf("Failed executing REVOKE statement (%s@%s)", userOrRole.Name.ValueString(), userOrRole.Host.ValueString()),
+			fmt.Sprintf("[Delete] Failed executing REVOKE statement (%s@%s)", userOrRole.Name.ValueString(), userOrRole.Host.ValueString()),
 			err.Error())
 		return
 	}
