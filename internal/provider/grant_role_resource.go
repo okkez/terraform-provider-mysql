@@ -355,6 +355,6 @@ func (r *GrantRoleResource) ImportState(ctx context.Context, req resource.Import
 		return
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(req.ID))...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), types.StringValue(nameHost[0]))...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("host"), types.StringValue(nameHost[1]))...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("to").AtName("name"), types.StringValue(nameHost[0]))...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("to").AtName("host"), types.StringValue(nameHost[1]))...)
 }
