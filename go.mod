@@ -7,9 +7,12 @@ require (
 	github.com/hashicorp/go-version v1.6.0
 	github.com/hashicorp/terraform-plugin-docs v0.14.1
 	github.com/hashicorp/terraform-plugin-framework v1.2.0
+	github.com/hashicorp/terraform-plugin-framework-validators v0.10.0
 	github.com/hashicorp/terraform-plugin-go v0.15.0
 	github.com/hashicorp/terraform-plugin-log v0.8.0
 	github.com/hashicorp/terraform-plugin-testing v1.2.0
+	github.com/pingcap/tidb/parser v0.0.0-20230419104120-29116c0256c5
+	github.com/r3labs/diff/v3 v3.0.1
 	golang.org/x/net v0.8.0
 )
 
@@ -39,7 +42,6 @@ require (
 	github.com/hashicorp/logutils v1.0.0 // indirect
 	github.com/hashicorp/terraform-exec v0.18.1 // indirect
 	github.com/hashicorp/terraform-json v0.16.0 // indirect
-	github.com/hashicorp/terraform-plugin-framework-validators v0.10.0 // indirect
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.26.1 // indirect
 	github.com/hashicorp/terraform-registry-address v0.2.0 // indirect
 	github.com/hashicorp/terraform-svchost v0.0.1 // indirect
@@ -57,9 +59,7 @@ require (
 	github.com/oklog/run v1.0.0 // indirect
 	github.com/pingcap/errors v0.11.5-0.20210425183316-da1aaba5fb63 // indirect
 	github.com/pingcap/log v0.0.0-20210625125904-98ed8e2eb1c7 // indirect
-	github.com/pingcap/tidb/parser v0.0.0-20230419104120-29116c0256c5 // indirect
 	github.com/posener/complete v1.2.3 // indirect
-	github.com/r3labs/diff/v3 v3.0.1 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0 // indirect
 	github.com/russross/blackfriday v1.6.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
