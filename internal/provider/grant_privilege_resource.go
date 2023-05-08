@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -48,8 +49,8 @@ type GrantPrivilegeResourceModel struct {
 }
 
 type PrivilegeTypeModel struct {
-	PrivType types.String `tfsdk:"priv_type" diff:"priv_type"`
-	Columns  types.Set    `tfsdk:"columns" diff:"columns"`
+	PrivType types.String `tfsdk:"priv_type"`
+	Columns  types.Set    `tfsdk:"columns"`
 }
 
 var PrivlilegeTypeModelTypes = map[string]attr.Type{
@@ -60,6 +61,11 @@ var PrivlilegeTypeModelTypes = map[string]attr.Type{
 type PrivilegeLevelModel struct {
 	Database types.String `tfsdk:"database"`
 	Table    types.String `tfsdk:"table"`
+}
+
+type PrivilegeTypeRaw struct {
+	PrivType string   `diff:"priv_type"`
+	Columns  []string `diff:"columns"`
 }
 
 func (r *GrantPrivilegeResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -99,6 +105,7 @@ func (r *GrantPrivilegeResource) Schema(ctx context.Context, req resource.Schema
 			"on": schema.SingleNestedBlock{
 				MarkdownDescription: "",
 				Attributes: map[string]schema.Attribute{
+					// TODO: validate not to use `*`.
 					"database": schema.StringAttribute{
 						MarkdownDescription: "",
 						Required:            true,
@@ -173,7 +180,7 @@ func (r *GrantPrivilegeResource) Create(ctx context.Context, req resource.Create
 
 	data.ID = types.StringValue(
 		fmt.Sprintf(
-			"%s@%s%s@%s",
+			"%s@%s@%s@%s",
 			privilegeLevel.Database.ValueString(),
 			privilegeLevel.Table.ValueString(),
 			userOrRole.Name.ValueString(),
@@ -232,6 +239,8 @@ func (r *GrantPrivilegeResource) Read(ctx context.Context, req resource.ReadRequ
 			continue
 		}
 
+		data.GrantOption = types.BoolValue(grantPrivilege.GrantOption)
+
 		for _, priv := range grantPrivilege.Privileges {
 			if len(priv.Priv.String()) == 0 {
 				continue
@@ -276,66 +285,95 @@ func (r *GrantPrivilegeResource) Update(ctx context.Context, req resource.Update
 	var dataPrivileges, statePrivileges []PrivilegeTypeModel
 	data.Privileges.ElementsAs(ctx, &dataPrivileges, false)
 	state.Privileges.ElementsAs(ctx, &statePrivileges, false)
+	dataPrivilegesRaw := convertPrivilegesToRaws(ctx, dataPrivileges)
+	statePrivilegesRaw := convertPrivilegesToRaws(ctx, statePrivileges)
 
-	changelog, err := diff.Diff(statePrivileges, dataPrivileges, diff.DiscardComplexOrigin(), diff.StructMapKeySupport())
+	// Note: need to change types to check diff properly.
+	changelog, err := diff.Diff(statePrivilegesRaw, dataPrivilegesRaw, diff.DiscardComplexOrigin(), diff.StructMapKeySupport())
 	if err != nil {
 		resp.Diagnostics.AddError("Failed calculating diff", err.Error())
 		return
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("%+v\nstate=%+v\ndata=%+v\n", changelog, statePrivileges, dataPrivileges))
+	tflog.Info(ctx, fmt.Sprintf("\nchangelog=%+v\nstate=%+v\ndata=%+v\n", changelog, statePrivileges, dataPrivileges))
 
-	var privilegesToGrant, privilegesToRevoke []PrivilegeTypeModel
 	var prev string
-	var toGrant, toRevoke PrivilegeTypeModel
+	var privilegesToGrantRaw, privilegesToRevokeRaw []PrivilegeTypeRaw
+	toGrantRaw := PrivilegeTypeRaw{Columns: []string{}}
+	toRevokeRaw := PrivilegeTypeRaw{Columns: []string{}}
 	for _, change := range changelog {
-		tflog.Info(ctx, fmt.Sprintf("%+v\n", change))
+		tflog.Info(ctx, fmt.Sprintf("\nchange %+v\n", change))
 		if prev != change.Path[0] {
-			if !toGrant.PrivType.IsNull() {
-				privilegesToGrant = append(privilegesToGrant, toGrant)
+			if len(toGrantRaw.PrivType) > 0 {
+				privilegesToGrantRaw = append(privilegesToGrantRaw, toGrantRaw)
 			}
-			if !toRevoke.PrivType.IsNull() {
-				privilegesToRevoke = append(privilegesToRevoke, toRevoke)
+			if len(toRevokeRaw.PrivType) > 0 {
+				privilegesToRevokeRaw = append(privilegesToRevokeRaw, toRevokeRaw)
 			}
-			toGrant = PrivilegeTypeModel{}
-			toRevoke = PrivilegeTypeModel{}
+			toGrantRaw = PrivilegeTypeRaw{Columns: []string{}}
+			toRevokeRaw = PrivilegeTypeRaw{Columns: []string{}}
 		}
-		if change.Path[1] == "priv_type" && change.Path[2] == "state" {
-			prev = change.Path[0]
-			continue
-		}
-		// TODO support columns
-		if change.Path[1] == "priv_type" && change.Path[2] == "value" {
+		if change.Path[1] == "priv_type" {
 			switch change.Type {
 			case "create":
 				if priv, ok := change.To.(string); ok {
-					toGrant.PrivType = types.StringValue(priv)
+					toGrantRaw.PrivType = priv
 				}
 			case "update":
 				if priv, ok := change.To.(string); ok {
-					toGrant.PrivType = types.StringValue(priv)
+					toGrantRaw.PrivType = priv
 				}
 				if priv, ok := change.From.(string); ok {
-					toRevoke.PrivType = types.StringValue(priv)
+					toRevokeRaw.PrivType = priv
 				}
 			case "delete":
 				if priv, ok := change.From.(string); ok {
-					toRevoke.PrivType = types.StringValue(priv)
+					toRevokeRaw.PrivType = priv
+				}
+			}
+		}
+		if change.Path[1] == "columns" {
+			if len(toGrantRaw.PrivType) == 0 && (change.Type == "create" || change.Type == "update") {
+				i, _ := strconv.ParseUint(change.Path[0], 10, 32)
+				toGrantRaw.PrivType = dataPrivilegesRaw[i].PrivType
+			}
+			if len(toGrantRaw.PrivType) == 0 && (change.Type == "update" || change.Type == "delete") {
+				i, _ := strconv.ParseUint(change.Path[0], 10, 32)
+				toRevokeRaw.PrivType = dataPrivilegesRaw[i].PrivType
+			}
+			switch change.Type {
+			case "create":
+				if column, ok := change.To.(string); ok {
+					toGrantRaw.Columns = append(toGrantRaw.Columns, column)
+				}
+			case "update":
+				if column, ok := change.To.(string); ok {
+					toGrantRaw.Columns = append(toGrantRaw.Columns, column)
+				}
+				if column, ok := change.From.(string); ok {
+					toRevokeRaw.Columns = append(toGrantRaw.Columns, column)
+				}
+			case "delete":
+				if column, ok := change.From.(string); ok {
+					toRevokeRaw.Columns = append(toGrantRaw.Columns, column)
 				}
 			}
 		}
 		prev = change.Path[0]
 	}
 
-	if !toGrant.PrivType.IsNull() {
-		privilegesToGrant = append(privilegesToGrant, toGrant)
+	if len(toGrantRaw.PrivType) > 0 {
+		privilegesToGrantRaw = append(privilegesToGrantRaw, toGrantRaw)
 	}
-	if !toRevoke.PrivType.IsNull() {
-		privilegesToRevoke = append(privilegesToRevoke, toRevoke)
+	if len(toRevokeRaw.PrivType) > 0 {
+		privilegesToRevokeRaw = append(privilegesToRevokeRaw, toRevokeRaw)
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("grant %+v\n", privilegesToGrant))
-	tflog.Info(ctx, fmt.Sprintf("revoke %+v\n", privilegesToRevoke))
+	tflog.Info(ctx, fmt.Sprintf("\ngrant raw%+v\nrevoke raw %+v\n", privilegesToGrantRaw, privilegesToRevokeRaw))
+
+	privilegesToGrant := convertRawsToPrivileges(privilegesToGrantRaw)
+	privilegesToRevoke := convertRawsToPrivileges(privilegesToRevokeRaw)
+	tflog.Info(ctx, fmt.Sprintf("\ngrant %+v\nrevoke %+v\n", privilegesToGrant, privilegesToRevoke))
 
 	var privilegeLevel PrivilegeLevelModel
 	resp.Diagnostics.Append(data.On.As(ctx, &privilegeLevel, basetypes.ObjectAsOptions{})...)
@@ -403,12 +441,21 @@ func (r *GrantPrivilegeResource) Delete(ctx context.Context, req resource.Delete
 }
 
 func (r *GrantPrivilegeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	idParts := strings.SplitN(req.ID, "@", 4)
+	if len(idParts) != 4 {
+		resp.Diagnostics.AddAttributeError(path.Root("id"), fmt.Sprintf("Invalid ID format. %s", req.ID), "The valid ID format is `database@table@name@host`")
+		return
+	}
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("on").AtName("database"), types.StringValue(idParts[0]))...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("on").AtName("table"), types.StringValue(idParts[1]))...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("to").AtName("name"), types.StringValue(idParts[2]))...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("to").AtName("host"), types.StringValue(idParts[3]))...)
 }
 
 func buildPrivilege(ctx context.Context, db *sql.DB, privilege PrivilegeTypeModel) (string, error) {
 	normalizedPrivType := strings.ToUpper(privilege.PrivType.ValueString())
-	if privilege.Columns.IsNull() {
+	if privilege.Columns.IsNull() || len(privilege.Columns.Elements()) == 0 {
 		return normalizedPrivType, nil
 	}
 
@@ -513,4 +560,33 @@ func revokePrivileges(ctx context.Context, db *sql.DB, privileges []PrivilegeTyp
 	}
 
 	return nil
+}
+
+func convertPrivilegesToRaws(ctx context.Context, privileges []PrivilegeTypeModel) []PrivilegeTypeRaw {
+	var result []PrivilegeTypeRaw
+	for _, p := range privileges {
+		var raw PrivilegeTypeRaw
+		raw.PrivType = p.PrivType.ValueString()
+		var columns []string
+		p.Columns.ElementsAs(ctx, &columns, false)
+		raw.Columns = columns
+		result = append(result, raw)
+	}
+
+	return result
+}
+
+func convertRawsToPrivileges(raws []PrivilegeTypeRaw) []PrivilegeTypeModel {
+	var result []PrivilegeTypeModel
+	for _, r := range raws {
+		var p PrivilegeTypeModel
+		p.PrivType = types.StringValue(r.PrivType)
+		var columns []attr.Value
+		for _, c := range r.Columns {
+			columns = append(columns, types.StringValue(c))
+		}
+		p.Columns = types.SetValueMust(types.StringType, columns)
+		result = append(result, p)
+	}
+	return result
 }
