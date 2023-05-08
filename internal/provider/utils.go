@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 )
 
 func getDatabase(ctx context.Context, mysqlConf *MySQLConfiguration) (*sql.DB, error) {
@@ -31,24 +30,25 @@ func getDatabase(ctx context.Context, mysqlConf *MySQLConfiguration) (*sql.DB, e
 
 func quoteIdentifier(ctx context.Context, db *sql.DB, identifier string) (string, error) {
 	var quotedIdentifier string
-	if err := db.QueryRowContext(ctx, "SELECT sys.quote_identifier(?)", identifier).Scan(&quotedIdentifier); err != nil {
+	stmt, err := db.PrepareContext(ctx, "SELECT sys.quote_identifier(?)")
+	if err != nil {
+		return "", err
+	}
+	defer stmt.Close()
+	if err := stmt.QueryRowContext(ctx, identifier).Scan(&quotedIdentifier); err != nil {
 		return "", err
 	}
 	return quotedIdentifier, nil
 }
 
 func quoteIdentifiers(ctx context.Context, db *sql.DB, identifiers ...string) ([]string, error) {
-	originalIdentifiers := make([]interface{}, len(identifiers))
 	quotedIdentifiers := make([]string, len(identifiers))
-	placeholders := make([]string, len(identifiers))
+	var err error
 	for i, identifier := range identifiers {
-		originalIdentifiers[i] = identifier
-		placeholders[i] = "sys.quote_identifier(?)"
-	}
-	sql := fmt.Sprintf(`SELECT %s`, strings.Join(placeholders, ","))
-
-	if err := db.QueryRowContext(ctx, sql, originalIdentifiers...).Scan(&quotedIdentifiers); err != nil {
-		return nil, err
+		quotedIdentifiers[i], err = quoteIdentifier(ctx, db, identifier)
+		if err != nil {
+			return quotedIdentifiers, err
+		}
 	}
 	return quotedIdentifiers, nil
 }
