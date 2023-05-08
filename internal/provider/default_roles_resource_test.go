@@ -12,6 +12,7 @@ func TestAccDefaultRoleResource(t *testing.T) {
 	user := NewRandomUser("test-user", "%")
 	role1 := NewRandomRole("test-role", "%")
 	role2 := NewRandomRole("test-role", "%")
+	t.Logf("user: %s, role1: %s, role2: %s", user.GetID(), role1.GetID(), role2.GetID())
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		CheckDestroy:             testAccTestAccDefaultRoleResource_CheckDestroy(user),
@@ -19,11 +20,12 @@ func TestAccDefaultRoleResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccDefaultRoleResource_Config(user.GetName(), role1.GetName()),
+				Config: testAccDefaultRoleResource_Config(user.GetName(), role1.GetName(), role2.GetName(), "role1"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_default_role.test", "id", user.GetID()),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "user", user.GetName()),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "host", user.GetHost()),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.#", "1"),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.name", role1.GetName()),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.host", "%"),
 				),
@@ -36,11 +38,12 @@ func TestAccDefaultRoleResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccDefaultRoleResource_Config(user.GetName(), role2.GetName()),
+				Config: testAccDefaultRoleResource_Config(user.GetName(), role1.GetName(), role2.GetName(), "role2"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_default_role.test", "id", user.GetID()),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "user", user.GetName()),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "host", user.GetHost()),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.#", "1"),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.name", role2.GetName()),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.host", "%"),
 				),
@@ -51,10 +54,7 @@ func TestAccDefaultRoleResource(t *testing.T) {
 					resource.TestCheckResourceAttr("mysql_default_role.test", "id", user.GetID()),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "user", user.GetName()),
 					resource.TestCheckResourceAttr("mysql_default_role.test", "host", user.GetHost()),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.name", role1.GetName()),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.host", "%"),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.1.name", role2.GetName()),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.1.host", "%"),
+					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.#", "2"),
 				),
 			},
 			// Delete testing automatically occurs in TestCase
@@ -62,44 +62,63 @@ func TestAccDefaultRoleResource(t *testing.T) {
 	})
 }
 
-func testAccDefaultRoleResource_Config(user, role string) string {
-	return fmt.Sprintf(`
+func testAccDefaultRoleResource_Config(user, role1, role2, roleLabel string) string {
+	config := fmt.Sprintf(`
 resource "mysql_user" "test" {
   name = %q
 }
-resource "mysql_role" "test" {
+resource "mysql_role" "role1" {
   name = %q
+}
+resource "mysql_role" "role2" {
+  name = %q
+}
+resource "mysql_grant_role" "test" {
+  to {
+    name = mysql_user.test.name
+  }
+  roles = [mysql_role.role1.name, mysql_role.role2.name]
 }
 resource "mysql_default_role" "test" {
   user = mysql_user.test.name
   default_role {
-    name = mysql_role.test.name
+    name = mysql_role.%s.name
   }
+  depends_on = [mysql_grant_role.test]
 }
-`, user, role)
+`, user, role1, role2, roleLabel)
+	return buildConfig(config)
 }
 
 func testAccDefaultRoleResource_ConfigWithRoles(user, role1, role2 string) string {
-	return fmt.Sprintf(`
+	config := fmt.Sprintf(`
 resource "mysql_user" "test" {
   name = %q
 }
-resource "mysql_role" "test1" {
+resource "mysql_role" "role1" {
   name = %q
 }
-resource "mysql_role" "test2" {
+resource "mysql_role" "role2" {
   name = %q
+}
+resource "mysql_grant_role" "test" {
+  to {
+    name = mysql_user.test.name
+  }
+  roles = [mysql_role.role1.name, mysql_role.role2.name]
 }
 resource "mysql_default_role" "test" {
   user = mysql_user.test.name
   default_role {
-    name = mysql_role.test1.name
+    name = mysql_role.role1.name
   }
   default_role {
-    name = mysql_role.test2.name
+    name = mysql_role.role2.name
   }
+  depends_on = [mysql_grant_role.test]
 }
 `, user, role1, role2)
+	return buildConfig(config)
 }
 
 func testAccTestAccDefaultRoleResource_CheckDestroy(user UserModel) resource.TestCheckFunc {
