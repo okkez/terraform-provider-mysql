@@ -65,6 +65,18 @@ jobs:
           - '1.2.*'
           - '1.3.*'
           - '1.4.*'
+    services:
+      mysql:
+        image: mysql:8.0
+        ports:
+          - 3306:3306
+        env:
+          MYSQL_ROOT_PASSWORD: password
+        options: >-
+          --health-cmd "mysqladmin ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
       - uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
@@ -78,5 +90,8 @@ jobs:
       - run: go mod download
       - env:
           TF_ACC: "1"
-        run: go test -v -cover ./internal/provider/ || true
+          MYSQL_ENDPOINT: localhost:3306
+          MYSQL_USERNAME: root
+          MYSQL_PASSWORD: password
+        run: go test -v -cover ./internal/provider/
         timeout-minutes: 10
