@@ -37,6 +37,7 @@ terraform {
   required_providers {
     mysql = {
       source = "okkez/mysql"
+      version = "> 0.1.0"
     }
   }
 }
