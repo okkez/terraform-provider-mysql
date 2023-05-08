@@ -95,8 +95,6 @@ resource "mysql_user" "test" {
 	return buildConfig(config)
 }
 
-
-
 func testAccUserResource_CheckDestroy(users []UserModel) resource.TestCheckFunc {
 	return func(t *terraform.State) error {
 		db := testDatabase()

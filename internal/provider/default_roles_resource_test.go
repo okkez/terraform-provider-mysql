@@ -14,7 +14,7 @@ func TestAccDefaultRoleResource(t *testing.T) {
 	role2 := NewRandomRole("test-role", "%")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
-		CheckDestroy: testAccTestAccDefaultRoleResource_CheckDestroy(user),
+		CheckDestroy:             testAccTestAccDefaultRoleResource_CheckDestroy(user),
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
@@ -101,7 +101,6 @@ resource "mysql_default_role" "test" {
 }
 `, user, role1, role2)
 }
-
 
 func testAccTestAccDefaultRoleResource_CheckDestroy(user UserModel) resource.TestCheckFunc {
 	return func(t *terraform.State) error {

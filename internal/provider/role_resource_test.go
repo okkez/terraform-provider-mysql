@@ -14,7 +14,7 @@ func TestAccRoleResource(t *testing.T) {
 	roles = append(roles, NewRandomRole("test-role", "example.com"))
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
-		CheckDestroy: testAccRoleResource_CheckDestroy(roles),
+		CheckDestroy:             testAccRoleResource_CheckDestroy(roles),
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
@@ -81,4 +81,3 @@ func testAccRoleResource_CheckDestroy(roles []RoleModel) resource.TestCheckFunc 
 		return nil
 	}
 }
-

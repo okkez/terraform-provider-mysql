@@ -36,7 +36,6 @@ func (u *UserModel) GetID() string {
 	return fmt.Sprintf("%s@%s", u.GetName(), u.GetHost())
 }
 
-
 type RoleModel struct {
 	Name types.String `tfsdk:"name"`
 	Host types.String `tfsdk:"host"`

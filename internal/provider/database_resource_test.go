@@ -14,7 +14,7 @@ func TestAccDatabaseResource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy: testAccDatabaseResource_CheckDestroy(name),
+		CheckDestroy:             testAccDatabaseResource_CheckDestroy(name),
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
