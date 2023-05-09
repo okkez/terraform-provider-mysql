@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -12,7 +14,7 @@ import (
 
 func IDAttribute() schema.StringAttribute {
 	return schema.StringAttribute{
-		MarkdownDescription: "user identifier",
+		MarkdownDescription: "The identifier",
 		Computed:            true,
 		PlanModifiers: []planmodifier.String{
 			stringplanmodifier.UseStateForUnknown(),
@@ -20,30 +22,36 @@ func IDAttribute() schema.StringAttribute {
 	}
 }
 
-func NameAttribute() schema.StringAttribute {
-	return schema.StringAttribute{
-		MarkdownDescription: "",
+func NameAttribute(kind string, requireReplace bool) schema.StringAttribute {
+	a := schema.StringAttribute{
+		MarkdownDescription: fmt.Sprintf("The name of the %s", kind),
 		Required:            true,
 		Validators: []validator.String{
 			stringvalidator.LengthAtMost(32),
 		},
-		PlanModifiers: []planmodifier.String{
-			stringplanmodifier.RequiresReplace(),
-		},
 	}
+	if requireReplace {
+		a.PlanModifiers = []planmodifier.String{
+			stringplanmodifier.RequiresReplace(),
+		}
+	}
+	return a
 }
 
-func HostAttribute() schema.StringAttribute {
-	return schema.StringAttribute{
-		MarkdownDescription: "",
+func HostAttribute(kind string, requireReplace bool) schema.StringAttribute {
+	a := schema.StringAttribute{
+		MarkdownDescription: fmt.Sprintf("The source host of the %s. Defaults to `%%`", kind),
 		Optional:            true,
 		Computed:            true,
 		Default:             stringdefault.StaticString("%"),
 		Validators: []validator.String{
 			stringvalidator.LengthAtMost(255),
 		},
-		PlanModifiers: []planmodifier.String{
-			stringplanmodifier.RequiresReplace(),
-		},
 	}
+	if requireReplace {
+		a.PlanModifiers = []planmodifier.String{
+			stringplanmodifier.RequiresReplace(),
+		}
+	}
+	return a
 }

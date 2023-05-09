@@ -60,8 +60,8 @@ func (r *UserResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 
 		Attributes: map[string]schema.Attribute{
 			"id":   utils.IDAttribute(),
-			"name": utils.NameAttribute(),
-			"host": utils.HostAttribute(),
+			"name": utils.NameAttribute("user", true),
+			"host": utils.HostAttribute("user", true),
 		},
 		Blocks: map[string]schema.Block{
 			"auth_option": schema.SingleNestedBlock{

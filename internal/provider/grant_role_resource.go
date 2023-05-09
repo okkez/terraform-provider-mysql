@@ -67,8 +67,8 @@ func (r *GrantRoleResource) Schema(ctx context.Context, req resource.SchemaReque
 		Blocks: map[string]schema.Block{
 			"to": schema.SingleNestedBlock{
 				Attributes: map[string]schema.Attribute{
-					"name": utils.NameAttribute(),
-					"host": utils.HostAttribute(),
+					"name": utils.NameAttribute("user or role", true),
+					"host": utils.HostAttribute("user or role", true),
 				},
 			},
 		},

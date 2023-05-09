@@ -8,15 +8,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
-
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+
+	"github.com/okkez/terraform-provider-mysql/internal/utils"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -51,34 +47,9 @@ func (r *RoleResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 		MarkdownDescription: "MySQL role",
 
 		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
-				Computed: true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"name": schema.StringAttribute{
-				MarkdownDescription: "MySQL role name",
-				Required:            true,
-				Validators: []validator.String{
-					stringvalidator.LengthAtMost(32),
-				},
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"host": schema.StringAttribute{
-				MarkdownDescription: "Host for the role",
-				Optional:            true,
-				Computed:            true,
-				Default:             stringdefault.StaticString("%"),
-				Validators: []validator.String{
-					stringvalidator.LengthAtMost(255),
-				},
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
+			"id":   utils.IDAttribute(),
+			"name": utils.NameAttribute("role", true),
+			"host": utils.HostAttribute("role", true),
 		},
 	}
 }

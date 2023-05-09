@@ -125,8 +125,8 @@ func (r *GrantPrivilegeResource) Schema(ctx context.Context, req resource.Schema
 			"to": schema.SingleNestedBlock{
 				MarkdownDescription: "",
 				Attributes: map[string]schema.Attribute{
-					"name": utils.NameAttribute(),
-					"host": utils.HostAttribute(),
+					"name": utils.NameAttribute("user or role", true),
+					"host": utils.HostAttribute("user or role", true),
 				},
 			},
 		},

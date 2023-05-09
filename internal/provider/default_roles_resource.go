@@ -11,14 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
-
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+
+	"github.com/okkez/terraform-provider-mysql/internal/utils"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -60,50 +58,16 @@ func (r *DefaultRolesResource) Schema(ctx context.Context, req resource.SchemaRe
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"user": schema.StringAttribute{
-				MarkdownDescription: "",
-				Required:            true,
-				Validators: []validator.String{
-					stringvalidator.LengthAtMost(32),
-				},
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"host": schema.StringAttribute{
-				MarkdownDescription: "",
-				Optional:            true,
-				Computed:            true,
-				Default:             stringdefault.StaticString("%"),
-				Validators: []validator.String{
-					stringvalidator.LengthAtMost(255),
-				},
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
+			"user": utils.NameAttribute("user", true),
+			"host": utils.HostAttribute("user", true),
 		},
 		Blocks: map[string]schema.Block{
 			"default_role": schema.SetNestedBlock{
 				MarkdownDescription: "",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
-						"name": schema.StringAttribute{
-							MarkdownDescription: "",
-							Required:            true,
-							Validators: []validator.String{
-								stringvalidator.LengthAtMost(32),
-							},
-						},
-						"host": schema.StringAttribute{
-							MarkdownDescription: "",
-							Optional:            true,
-							Computed:            true,
-							Validators: []validator.String{
-								stringvalidator.LengthAtMost(255),
-							},
-							Default: stringdefault.StaticString("%"),
-						},
+						"name": utils.NameAttribute("role", false),
+						"host": utils.HostAttribute("role", false),
 					},
 				},
 			},
