@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -13,11 +15,13 @@ import (
 	"github.com/go-sql-driver/mysql"
 
 	"github.com/hashicorp/go-version"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
@@ -42,6 +46,7 @@ type mysqlProviderModel struct {
 	Endpoint types.String `tfsdk:"endpoint"`
 	Username types.String `tfsdk:"username"`
 	Password types.String `tfsdk:"password"`
+	Proxy    types.String `tfsdk:"proxy"`
 }
 
 type OneConnection struct {
@@ -89,6 +94,15 @@ func (p *mysqlProvider) Schema(ctx context.Context, req provider.SchemaRequest, 
 				Optional:            true,
 				Sensitive:           true,
 			},
+			"proxy": schema.StringAttribute{
+				MarkdownDescription: "",
+				Optional: true,
+				Validators: []validator.String{
+					stringvalidator.RegexMatches(
+						regexp.MustCompile("socks5h?://.*:\\d+$"),
+						"The proxy URL is not a valid socks URL."),
+				},
+			},
 		},
 	}
 }
@@ -120,6 +134,10 @@ func (p *mysqlProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	endpoint := os.Getenv("MYSQL_ENDPOINT")
 	username := os.Getenv("MYSQL_USERNAME")
 	password := os.Getenv("MYSQL_PASSWORD")
+	proxy := os.Getenv("ALL_PROXY")
+	if len(proxy) == 0 {
+		proxy = os.Getenv("all_proxy")
+	}
 
 	if !data.Endpoint.IsNull() {
 		endpoint = data.Endpoint.ValueString()
@@ -129,6 +147,9 @@ func (p *mysqlProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	}
 	if !data.Password.IsNull() {
 		password = data.Password.ValueString()
+	}
+	if !data.Proxy.IsNull() {
+		proxy = data.Proxy.ValueString()
 	}
 
 	if len(endpoint) == 0 {
@@ -175,7 +196,7 @@ func (p *mysqlProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		Params:                  map[string]string{},
 	}
 
-	dialer, err := makeDialer(&data)
+	dialer, err := makeDialer(proxy)
 	if err != nil {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("proxy"),
@@ -226,25 +247,20 @@ func New(version string) func() provider.Provider {
 	}
 }
 
-func makeDialer(data *mysqlProviderModel) (proxy.Dialer, error) {
+func makeDialer(proxyValue string) (proxy.Dialer, error) {
 	proxyFromEnv := proxy.FromEnvironment()
 
-	// TODO implement.
-	if data == nil {
-		return nil, fmt.Errorf("error")
+	if len(proxyValue) > 0 {
+		proxyURL, err := url.Parse(proxyValue)
+		if err != nil {
+			return nil, err
+		}
+		proxyDialer, err := proxy.FromURL(proxyURL, proxy.Direct)
+		if err != nil {
+			return nil, err
+		}
+		return proxyDialer, nil
 	}
-	fmt.Printf("%+v\n", data)
-	// if !data.Proxy.IsNull() {
-	// 	proxyURL, err := url.Parse(data.Proxy.ValueString())
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	proxyDialer, err := proxy.FromURL(proxyURL, proxy.Direct)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	return proxyDialer, nil
-	// }
 
 	return proxyFromEnv, nil
 }
