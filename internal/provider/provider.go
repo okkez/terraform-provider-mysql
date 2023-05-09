@@ -96,7 +96,7 @@ func (p *mysqlProvider) Schema(ctx context.Context, req provider.SchemaRequest, 
 			},
 			"proxy": schema.StringAttribute{
 				MarkdownDescription: "",
-				Optional: true,
+				Optional:            true,
 				Validators: []validator.String{
 					stringvalidator.RegexMatches(
 						regexp.MustCompile("socks5h?://.*:\\d+$"),
