@@ -52,11 +52,10 @@ func TestAccGlobalVariableResource(t *testing.T) {
 }
 
 func testAccGlobalVariableResourceConfig(name, value string) string {
-	config := fmt.Sprintf(`
+	return fmt.Sprintf(`
 resource "mysql_global_variable" "test" {
   name = %q
   value = %q
 }
 `, name, value)
-	return buildConfig(config)
 }

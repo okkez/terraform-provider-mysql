@@ -63,7 +63,7 @@ func TestAccDefaultRoleResource(t *testing.T) {
 }
 
 func testAccDefaultRoleResource_Config(user, role1, role2, roleLabel string) string {
-	config := fmt.Sprintf(`
+	return fmt.Sprintf(`
 resource "mysql_user" "test" {
   name = %q
 }
@@ -87,11 +87,10 @@ resource "mysql_default_role" "test" {
   depends_on = [mysql_grant_role.test]
 }
 `, user, role1, role2, roleLabel)
-	return buildConfig(config)
 }
 
 func testAccDefaultRoleResource_ConfigWithRoles(user, role1, role2 string) string {
-	config := fmt.Sprintf(`
+	return fmt.Sprintf(`
 resource "mysql_user" "test" {
   name = %q
 }
@@ -118,7 +117,6 @@ resource "mysql_default_role" "test" {
   depends_on = [mysql_grant_role.test]
 }
 `, user, role1, role2)
-	return buildConfig(config)
 }
 
 func testAccTestAccDefaultRoleResource_CheckDestroy(user UserModel) resource.TestCheckFunc {

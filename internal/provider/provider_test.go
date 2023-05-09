@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"testing"
 	"time"
 
@@ -19,34 +18,13 @@ import (
 // CLI command executed to create a provider server to which the CLI can
 // reattach.
 var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-	"test": providerserver.NewProtocol6WithError(New("test")()),
+	"mysql": providerserver.NewProtocol6WithError(New("test")()),
 }
 
 func testAccPreCheck(t *testing.T) {
 	// You can add code here to run prior to any test case execution, for example assertions
 	// about the appropriate environment variables being set are common to see in a pre-check
 	// function.
-}
-
-func buildConfig(config string) string {
-	endpoint := utils.GetenvWithDefault("MYSQL_ENDPOINT", "localhost:3306")
-	username := utils.GetenvWithDefault("MYSQL_USERNAME", "root")
-	password := utils.GetenvWithDefault("MYSQL_PASSWORD", "password")
-	return fmt.Sprintf(`
-terraform {
-  required_providers {
-    mysql = {
-      source = "okkez/mysql"
-      version = "> 0.1.0"
-    }
-  }
-}
-provider "mysql" {
-  endpoint = %q
-  username = %q
-  password = %q
-}
-`, endpoint, username, password) + config
 }
 
 func testDatabase() *sql.DB {

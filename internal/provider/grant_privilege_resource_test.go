@@ -56,7 +56,7 @@ func TestAccGrantPrivilegeResource(t *testing.T) {
 }
 
 func testAccGrantPrivilegeResource_Config(database, user, privilege string) string {
-	config := fmt.Sprintf(`
+	return fmt.Sprintf(`
 resource "mysql_database" "test" {
   name = %q
 }
@@ -77,5 +77,4 @@ resource "mysql_grant_privilege" "test" {
   }
 }
 `, database, user, privilege)
-	return buildConfig(config)
 }

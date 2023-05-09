@@ -64,26 +64,24 @@ func TestAccUserResource(t *testing.T) {
 }
 
 func testAccUserResource_Config(name string) string {
-	config := fmt.Sprintf(`
+	return fmt.Sprintf(`
 resource "mysql_user" "test" {
   name = %q
 }
 `, name)
-	return buildConfig(config)
 }
 
 func testAccUserResource_ConfigWithHost(name, host string) string {
-	config := fmt.Sprintf(`
+	return fmt.Sprintf(`
 resource "mysql_user" "test" {
   name = %q
   host = %q
 }
 `, name, host)
-	return buildConfig(config)
 }
 
 func testAccUserResource_ConfigWithAuth(name, host string) string {
-	config := fmt.Sprintf(`
+	return fmt.Sprintf(`
 resource "mysql_user" "test" {
   name = %q
   host = %q
@@ -92,7 +90,6 @@ resource "mysql_user" "test" {
   }
 }
 `, name, host)
-	return buildConfig(config)
 }
 
 func testAccUserResource_CheckDestroy(users []UserModel) resource.TestCheckFunc {

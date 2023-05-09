@@ -47,23 +47,21 @@ func TestAccDatabaseResource(t *testing.T) {
 }
 
 func testAccDatabaseResourceConfig(name string) string {
-	config := fmt.Sprintf(`
+	return fmt.Sprintf(`
 resource "mysql_database" "test" {
   name = %q
 }
 `, name)
-	return buildConfig(config)
 }
 
 func testAccDatabaseResourceConfig_full(name, charset, collation string) string {
-	config := fmt.Sprintf(`
+	return fmt.Sprintf(`
 resource "mysql_database" "test" {
   name = %q
   default_character_set = %q
   default_collation = %q
 }
 `, name, charset, collation)
-	return buildConfig(config)
 }
 
 func testAccDatabaseResource_CheckDestroy(name string) resource.TestCheckFunc {

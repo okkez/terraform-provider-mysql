@@ -61,7 +61,7 @@ func TestAccGrantRoleResource(t *testing.T) {
 }
 
 func testAccGrantRoleResource_Config(user, role1, role2, roleLabel string) string {
-	config := fmt.Sprintf(`
+	return fmt.Sprintf(`
 resource "mysql_user" "test" {
   name = %q
 }
@@ -78,11 +78,10 @@ resource "mysql_grant_role" "test" {
   roles = [mysql_role.%s.name]
 }
 `, user, role1, role2, roleLabel)
-	return buildConfig(config)
 }
 
 func testAccGrantRoleResource_ConfigWithRoles(user, role1, role2 string) string {
-	config := fmt.Sprintf(`
+	return fmt.Sprintf(`
 resource "mysql_user" "test" {
   name = %q
 }
@@ -99,5 +98,4 @@ resource "mysql_grant_role" "test" {
   roles = [mysql_role.role1.name, mysql_role.role2.name]
 }
 `, user, role1, role2)
-	return buildConfig(config)
 }

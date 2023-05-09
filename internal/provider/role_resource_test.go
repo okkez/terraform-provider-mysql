@@ -47,22 +47,20 @@ func TestAccRoleResource(t *testing.T) {
 }
 
 func testAccRoleResource_Config(name string) string {
-	config := fmt.Sprintf(`
+	return fmt.Sprintf(`
 resource "mysql_role" "test" {
   name = %q
 }
 `, name)
-	return buildConfig(config)
 }
 
 func testAccRoleResource_ConfigWithHost(name, host string) string {
-	config := fmt.Sprintf(`
+	return fmt.Sprintf(`
 resource "mysql_role" "test" {
   name = %q
   host = %q
 }
 `, name, host)
-	return buildConfig(config)
 }
 
 func testAccRoleResource_CheckDestroy(roles []RoleModel) resource.TestCheckFunc {

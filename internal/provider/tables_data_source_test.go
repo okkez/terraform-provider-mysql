@@ -37,22 +37,20 @@ func TestAccTablesDataSource(t *testing.T) {
 }
 
 func testAccTablesDataSource_config(database string) string {
-	config := fmt.Sprintf(`
+	return fmt.Sprintf(`
 data "mysql_tables" "test" {
   database = %q
 }
 `, database)
-	return buildConfig(config)
 }
 
 func testAccTablesDataSource_configWithPattern(database, pattern string) string {
-	config := fmt.Sprintf(`
+	return fmt.Sprintf(`
 data "mysql_tables" "test" {
   database = %q
   pattern = %q
 }
 `, database, pattern)
-	return buildConfig(config)
 }
 
 func testAccTablesDataSource_tableCount(t *testing.T, database, pattern string) string {
