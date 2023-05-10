@@ -7,7 +7,9 @@ terraform {
 }
 
 provider "mysql" {
-  # example configuration here
+  endpoint = "database.example.com:3306"
+  username = "app-username"
+  password = "app-password"
 }
 
 data "mysql_tables" "example" {
