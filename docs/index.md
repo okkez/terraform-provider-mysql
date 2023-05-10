@@ -3,12 +3,15 @@
 page_title: "mysql Provider"
 subcategory: ""
 description: |-
-  
+  MySQL https://www.mysql.com/ is a relational database server. The MySQL provider exposes resources used to manage the configuration of resources in a MySQL server.
+  Use the navigation to the left to read about the available resources.
 ---
 
 # mysql Provider
 
+[MySQL](https://www.mysql.com/) is a relational database server. The MySQL provider exposes resources used to manage the configuration of resources in a MySQL server.
 
+Use the navigation to the left to read about the available resources.
 
 ## Example Usage
 
@@ -22,7 +25,9 @@ terraform {
 }
 
 provider "mysql" {
-  # example configuration here
+  endpoint = "database.example.com:3306"
+  username = "app-username"
+  password = "app-password"
 }
 
 data "mysql_tables" "example" {
@@ -35,6 +40,7 @@ data "mysql_tables" "example" {
 
 ### Optional
 
-- `endpoint` (String) Example provider attribute
-- `password` (String, Sensitive)
-- `username` (String)
+- `endpoint` (String) The address of the MySQL server to use. Most often a `hostname:port` pair, but may also be an absolute path to a Unix socket when the host OS is Unix-compatible. Can also be sourced from the `MYSQL_ENDPOINT` environment variable.
+- `password` (String, Sensitive) Password for the given user, if that user has a password, can also be sourced from the `MYSQL_PASSWORD` environment variable.
+- `proxy` (String) Proxy socks url, can also be sourced from `ALL_PROXY` or `all_proxy` environment variables.
+- `username` (String) Username to use to authenticate with the server, can also be sourced from the `MYSQL_USERNAME` environment variable.
