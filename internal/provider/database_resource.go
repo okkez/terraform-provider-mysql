@@ -41,8 +41,7 @@ func (r *databaseResource) Metadata(ctx context.Context, req resource.MetadataRe
 
 func (r *databaseResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Database resource",
+		MarkdownDescription: "The `mysql_database` resource creates and manages a database.",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -52,20 +51,20 @@ func (r *databaseResource) Schema(ctx context.Context, req resource.SchemaReques
 				},
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "",
+				MarkdownDescription: "The database name.",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"default_character_set": schema.StringAttribute{
-				MarkdownDescription: "",
+				MarkdownDescription: "The default character set. Defaults to `utf8mb4`.",
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString("utf8mb4"),
 			},
 			"default_collation": schema.StringAttribute{
-				MarkdownDescription: "",
+				MarkdownDescription: "The default collation. Defaults to `utf8mb4_0900_ai_ci`.",
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString("utf8mb4_0900_ai_ci"),

@@ -48,17 +48,18 @@ func (r *GrantRoleResource) Metadata(ctx context.Context, req resource.MetadataR
 
 func (r *GrantRoleResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Example resource",
-
+		MarkdownDescription: "The `mysql_grant_role` resource grants a role to a user." +
+			"See MySQL Reference Manual [GRANT Statement](https://dev.mysql.com/doc/refman/8.0/en/grant.html) for more detauls.\n\n" +
+			"Use the [`mysql_grant_privilege`](./grant_privilege) resource to grant privileges to a user or a role.",
 		Attributes: map[string]schema.Attribute{
 			"id": utils.IDAttribute(),
 			"roles": schema.SetAttribute{
-				MarkdownDescription: "",
+				MarkdownDescription: "Sets the role to be granted to the user specified in the `to` block.",
 				Required:            true,
 				ElementType:         types.StringType,
 			},
 			"admin_option": schema.BoolAttribute{
-				MarkdownDescription: "",
+				MarkdownDescription: "If `true`, add `WITH ADMIN OPTION`. Defaults to `false`.",
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(false),
@@ -66,6 +67,7 @@ func (r *GrantRoleResource) Schema(ctx context.Context, req resource.SchemaReque
 		},
 		Blocks: map[string]schema.Block{
 			"to": schema.SingleNestedBlock{
+				MarkdownDescription: "Set the user or role to be granted roles.",
 				Attributes: map[string]schema.Attribute{
 					"name": utils.NameAttribute("user or role", true),
 					"host": utils.HostAttribute("user or role", true),

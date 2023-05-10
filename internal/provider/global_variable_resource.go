@@ -44,7 +44,9 @@ func (r *GlobalVariableResource) Metadata(ctx context.Context, req resource.Meta
 
 func (r *GlobalVariableResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Global variable",
+		MarkdownDescription: "The `mysql_global_variable` resource manages a global variable.\n\n" +
+			"~> **Note on MySQL: ** MySQL global variables art [not persistent](https://dev.mysql.com/doc/refman/8.0/en/set-variable.html).\n\n" +
+			"~> **Note about `destroy`: ** `destroy` will try setting `DEFAULT` value for the global variable. Unfortunately not every variable support this.",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

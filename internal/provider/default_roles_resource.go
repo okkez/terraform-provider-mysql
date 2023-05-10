@@ -10,8 +10,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -49,21 +47,16 @@ func (r *DefaultRolesResource) Metadata(ctx context.Context, req resource.Metada
 
 func (r *DefaultRolesResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "",
+		MarkdownDescription: "The `mysql_default_role` resource manages default roles for the user.",
 
 		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
-				Computed: true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
+			"id":   utils.IDAttribute(),
 			"user": utils.NameAttribute("user", true),
 			"host": utils.HostAttribute("user", true),
 		},
 		Blocks: map[string]schema.Block{
 			"default_role": schema.SetNestedBlock{
-				MarkdownDescription: "",
+				MarkdownDescription: "Set default roles",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
 						"name": utils.NameAttribute("role", false),

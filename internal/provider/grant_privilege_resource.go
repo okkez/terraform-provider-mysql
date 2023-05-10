@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -14,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 
@@ -74,12 +76,14 @@ func (r *GrantPrivilegeResource) Metadata(ctx context.Context, req resource.Meta
 
 func (r *GrantPrivilegeResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Example resource",
+		MarkdownDescription: "The `mysql_grant_privilege` resource grants privileges to a user or a role. " +
+			"See MySQL Reference Manual [GRANT Statement](https://dev.mysql.com/doc/refman/8.0/en/grant.html) for more detauls.\n\n" +
+			"Use the [`mysql_grant_role`](./grant_role) resource to grant a role to a user.",
 
 		Attributes: map[string]schema.Attribute{
 			"id": utils.IDAttribute(),
 			"grant_option": schema.BoolAttribute{
-				MarkdownDescription: "",
+				MarkdownDescription: "If `true`, add `WITH GRANT OPTION`. Defaults to `false`.",
 				Computed:            true,
 				Optional:            true,
 				Default:             booldefault.StaticBool(false),
@@ -87,15 +91,15 @@ func (r *GrantPrivilegeResource) Schema(ctx context.Context, req resource.Schema
 		},
 		Blocks: map[string]schema.Block{
 			"privilege": schema.SetNestedBlock{
-				MarkdownDescription: "",
+				MarkdownDescription: "Set privilege name and columns.",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
 						"priv_type": schema.StringAttribute{
-							MarkdownDescription: "",
+							MarkdownDescription: "The privilege name.",
 							Required:            true,
 						},
 						"columns": schema.SetAttribute{
-							MarkdownDescription: "",
+							MarkdownDescription: "Column names.",
 							ElementType:         types.StringType,
 							Optional:            true,
 						},
@@ -103,18 +107,20 @@ func (r *GrantPrivilegeResource) Schema(ctx context.Context, req resource.Schema
 				},
 			},
 			"on": schema.SingleNestedBlock{
-				MarkdownDescription: "",
+				MarkdownDescription: "Set the target to grant privileges.",
 				Attributes: map[string]schema.Attribute{
-					// TODO: validate not to use `*`.
 					"database": schema.StringAttribute{
-						MarkdownDescription: "",
+						MarkdownDescription: "The database name to grant privileges.",
 						Required:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.RequiresReplace(),
 						},
+						Validators: []validator.String{
+							stringvalidator.NoneOf("*"),
+						},
 					},
 					"table": schema.StringAttribute{
-						MarkdownDescription: "",
+						MarkdownDescription: "The table name to grant privileges.",
 						Required:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.RequiresReplace(),
@@ -123,7 +129,7 @@ func (r *GrantPrivilegeResource) Schema(ctx context.Context, req resource.Schema
 				},
 			},
 			"to": schema.SingleNestedBlock{
-				MarkdownDescription: "",
+				MarkdownDescription: "Set the user or role to be granted privileges.",
 				Attributes: map[string]schema.Attribute{
 					"name": utils.NameAttribute("user or role", true),
 					"host": utils.HostAttribute("user or role", true),

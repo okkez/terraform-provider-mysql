@@ -36,20 +36,21 @@ func (d *tablesDataSource) Metadata(_ context.Context, req datasource.MetadataRe
 
 func (d *tablesDataSource) Schema(_ context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		MarkdownDescription: "The `mysql_tables` data source.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed: true,
 			},
 			"database": schema.StringAttribute{
-				MarkdownDescription: "",
+				MarkdownDescription: "The database name.",
 				Required:            true,
 			},
 			"pattern": schema.StringAttribute{
-				MarkdownDescription: "",
+				MarkdownDescription: "Table name pattern. Show all tables if omitted.",
 				Optional:            true,
 			},
 			"tables": schema.SetAttribute{
-				MarkdownDescription: "",
+				MarkdownDescription: "Table names.",
 				Computed:            true,
 				ElementType:         types.StringType,
 			},

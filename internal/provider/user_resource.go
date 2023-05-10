@@ -10,6 +10,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	"github.com/okkez/terraform-provider-mysql/internal/utils"
@@ -56,8 +58,12 @@ func (r *UserResource) Metadata(ctx context.Context, req resource.MetadataReques
 func (r *UserResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "user resource",
-
+		MarkdownDescription: "The `mysql_user` resource creates and manages a user on a MySQL server.\n\n" +
+			"~> **Note:** The password for the user is provided in plain text, and is obscured by an unsalted hash in the " +
+			"state [Read more about sensitive data in state](https://www.terraform.io/language/state/sensitive-data). " +
+			"Care is required when using this resource, to avoid disclosing the password.\n\n" +
+			"~> **Note about random password:** The generated random password will be shown in the log immediately after running `terraform apply`. " +
+			"Be sure to save the password, as there is no way to check it after that.",
 		Attributes: map[string]schema.Attribute{
 			"id":   utils.IDAttribute(),
 			"name": utils.NameAttribute("user", true),
@@ -65,18 +71,20 @@ func (r *UserResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 		},
 		Blocks: map[string]schema.Block{
 			"auth_option": schema.SingleNestedBlock{
-				MarkdownDescription: "",
+				MarkdownDescription: "Authentication configuration for the user",
 				Attributes: map[string]schema.Attribute{
 					"plugin": schema.StringAttribute{
-						MarkdownDescription: "",
-						Optional:            true,
+						MarkdownDescription: "An authentication plugin name. " +
+							"See MySQL Reference Manual [6.4.1 Authentication Plugins](https://dev.mysql.com/doc/refman/8.0/en/authentication-plugins.html) for more details. " +
+							"Conflicts with `auth_string`, `random_password` if set `AWSAuthenticationPlugin`.",
+						Optional: true,
 					},
 					"auth_string": schema.StringAttribute{
-						MarkdownDescription: "",
+						MarkdownDescription: "Plain text password. Conflicts with `random_password`.",
 						Optional:            true,
 					},
 					"random_password": schema.BoolAttribute{
-						MarkdownDescription: "",
+						MarkdownDescription: "Generate random password when create user. Display generated password after creating user. Conflicts with `auth_string`.",
 						Optional:            true,
 					},
 				},
@@ -87,10 +95,10 @@ func (r *UserResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 
 func (r *UserResource) ConfigValidators(ctx context.Context) []resource.ConfigValidator {
 	return []resource.ConfigValidator{
-		// resourcevalidator.Conflicting(
-		// 	path.MatchRoot("auth_option.auth_string"),
-		// 	path.MatchRoot("auth_option.random_password"),
-		// ),
+		resourcevalidator.Conflicting(
+			path.MatchRoot("auth_option").AtName("auth_string"),
+			path.MatchRoot("auth_option").AtName("random_password"),
+		),
 	}
 }
 
