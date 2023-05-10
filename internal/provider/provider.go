@@ -106,7 +106,7 @@ func (p *mysqlProvider) Schema(ctx context.Context, req provider.SchemaRequest, 
 				Optional:            true,
 				Validators: []validator.String{
 					stringvalidator.RegexMatches(
-						regexp.MustCompile("socks5h?://.*:\\d+$"),
+						regexp.MustCompile(`socks5h?://.*:\d+$`),
 						"The proxy URL is not a valid socks URL."),
 				},
 			},
