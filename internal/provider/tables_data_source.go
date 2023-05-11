@@ -11,30 +11,30 @@ import (
 )
 
 func NewTablesDataSource() datasource.DataSource {
-	return &tablesDataSource{}
+	return &TablesDataSource{}
 }
 
 var (
-	_ datasource.DataSource              = &tablesDataSource{}
-	_ datasource.DataSourceWithConfigure = &tablesDataSource{}
+	_ datasource.DataSource              = &TablesDataSource{}
+	_ datasource.DataSourceWithConfigure = &TablesDataSource{}
 )
 
-type tablesDataSource struct {
+type TablesDataSource struct {
 	mysqlConfig *MySQLConfiguration
 }
 
-type tablesDataSourceModel struct {
+type TablesDataSourceModel struct {
 	ID       types.String   `tfsdk:"id"`
 	Database types.String   `tfsdk:"database"`
 	Pattern  types.String   `tfsdk:"pattern"`
 	Tables   []types.String `tfsdk:"tables"`
 }
 
-func (d *tablesDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+func (d *TablesDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_tables"
 }
 
-func (d *tablesDataSource) Schema(_ context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+func (d *TablesDataSource) Schema(_ context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "The `mysql_tables` data source.",
 		Attributes: map[string]schema.Attribute{
@@ -58,14 +58,14 @@ func (d *tablesDataSource) Schema(_ context.Context, req datasource.SchemaReques
 	}
 }
 
-func (d *tablesDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+func (d *TablesDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	db, err := getDatabase(ctx, d.mysqlConfig)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to connect MySQL", err.Error())
 		return
 	}
 
-	var data tablesDataSourceModel
+	var data TablesDataSourceModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 
 	database, err := quoteIdentifier(ctx, db, data.Database.ValueString())
@@ -90,7 +90,7 @@ func (d *tablesDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	}
 	defer rows.Close()
 
-	var state tablesDataSourceModel
+	var state TablesDataSourceModel
 	for rows.Next() {
 		var table string
 		if err := rows.Scan(&table); err != nil {
@@ -107,7 +107,7 @@ func (d *tablesDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-func (d *tablesDataSource) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+func (d *TablesDataSource) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return
 	}
