@@ -242,6 +242,7 @@ func (p *mysqlProvider) Resources(ctx context.Context) []func() resource.Resourc
 
 func (p *mysqlProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
+		NewDatabaseDataSource,
 		NewTablesDataSource,
 	}
 }
