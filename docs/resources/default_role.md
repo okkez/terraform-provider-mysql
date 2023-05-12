@@ -67,4 +67,11 @@ Optional:
 
 - `host` (String) The source host of the role. Defaults to `%`
 
+## Import
 
+Import is supported using the following syntax:
+
+```shell
+# Default roles can be imported by specifying the target user `name@host`.
+terraform import mysql_default_role.app-user app_user@%
+```

@@ -33,4 +33,12 @@ resource "mysql_role" "app" {
 
 - `id` (String) The identifier
 
+## Import
 
+Import is supported using the following syntax:
+
+```shell
+# Role can be imported by specifying the role `name@host`.
+# Both name and host are required.
+terraform import mysql_role.app app-role@%
+```

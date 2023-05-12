@@ -72,4 +72,12 @@ Optional:
 
 - `host` (String) The source host of the user or role. Defaults to `%`
 
+## Import
 
+Import is supported using the following syntax:
+
+```shell
+# Grant role can be imported by specifying the user `name@host`
+# Both name and host are required.
+terraform import mysql_grant_role.app-user app-user@%
+```

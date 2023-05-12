@@ -34,4 +34,11 @@ resource "mysql_database" "my-database" {
 
 - `id` (String) The ID of this resource.
 
+## Import
 
+Import is supported using the following syntax:
+
+```shell
+# database can be imported by specifying the database name
+terraform import mysql_database.my-database my_database
+```

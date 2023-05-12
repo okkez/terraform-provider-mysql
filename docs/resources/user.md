@@ -63,4 +63,12 @@ Optional:
 - `plugin` (String) An authentication plugin name. See MySQL Reference Manual [6.4.1 Authentication Plugins](https://dev.mysql.com/doc/refman/8.0/en/authentication-plugins.html) for more details. Conflicts with `auth_string`, `random_password` if set `AWSAuthenticationPlugin`.
 - `random_password` (Boolean) Generate random password when create user. Display generated password after creating user. Conflicts with `auth_string`.
 
+## Import
 
+Import is supported using the following syntax:
+
+```shell
+# User can be imported by specifying the role `name@host`.
+# Both name and host are required.
+terraform import mysql_user.app app-user@%
+```
