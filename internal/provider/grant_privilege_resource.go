@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -97,6 +98,9 @@ func (r *GrantPrivilegeResource) Schema(ctx context.Context, req resource.Schema
 						"priv_type": schema.StringAttribute{
 							MarkdownDescription: "The privilege name.",
 							Required:            true,
+							Validators: []validator.String{
+								stringvalidator.RegexMatches(regexp.MustCompile(`\A[A-Z ]+\z`), "priv_type must be upper cases"),
+							},
 						},
 						"columns": schema.SetAttribute{
 							MarkdownDescription: "Column names.",
@@ -266,7 +270,7 @@ func (r *GrantPrivilegeResource) Read(ctx context.Context, req resource.ReadRequ
 		}
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("%+v\n", privileges))
+	tflog.Info(ctx, fmt.Sprintf("\nprivileges=%+v\n", privileges))
 
 	data.Privileges = types.SetValueMust(types.ObjectType{AttrTypes: PrivlilegeTypeModelTypes}, privileges)
 
@@ -343,7 +347,7 @@ func (r *GrantPrivilegeResource) Update(ctx context.Context, req resource.Update
 				i, _ := strconv.ParseUint(change.Path[0], 10, 32)
 				toGrantRaw.PrivType = dataPrivilegesRaw[i].PrivType
 			}
-			if len(toGrantRaw.PrivType) == 0 && (change.Type == "update" || change.Type == "delete") {
+			if len(toRevokeRaw.PrivType) == 0 && (change.Type == "update" || change.Type == "delete") {
 				i, _ := strconv.ParseUint(change.Path[0], 10, 32)
 				toRevokeRaw.PrivType = dataPrivilegesRaw[i].PrivType
 			}
@@ -357,11 +361,11 @@ func (r *GrantPrivilegeResource) Update(ctx context.Context, req resource.Update
 					toGrantRaw.Columns = append(toGrantRaw.Columns, column)
 				}
 				if column, ok := change.From.(string); ok {
-					toRevokeRaw.Columns = append(toGrantRaw.Columns, column)
+					toRevokeRaw.Columns = append(toRevokeRaw.Columns, column)
 				}
 			case "delete":
 				if column, ok := change.From.(string); ok {
-					toRevokeRaw.Columns = append(toGrantRaw.Columns, column)
+					toRevokeRaw.Columns = append(toRevokeRaw.Columns, column)
 				}
 			}
 		}
@@ -390,7 +394,9 @@ func (r *GrantPrivilegeResource) Update(ctx context.Context, req resource.Update
 	}
 
 	if len(privilegesToRevoke) > 0 {
-		err = revokePrivileges(ctx, db, privilegesToRevoke, privilegeLevel, userOrRole, data.GrantOption.ValueBool())
+		revokeGrantOption := state.GrantOption.ValueBool() && !data.GrantOption.ValueBool()
+		tflog.Info(ctx, fmt.Sprintf("\nrevokeGrantOption=%t\n", revokeGrantOption))
+		err = revokePrivileges(ctx, db, privilegesToRevoke, privilegeLevel, userOrRole, revokeGrantOption)
 		if err != nil {
 			resp.Diagnostics.AddError(
 				fmt.Sprintf("Failed executing REVOKE statement (%s)", data.ID.ValueString()),
@@ -522,7 +528,7 @@ func grantPrivileges(ctx context.Context, db *sql.DB, privileges []PrivilegeType
 	return nil
 }
 
-func revokePrivileges(ctx context.Context, db *sql.DB, privileges []PrivilegeTypeModel, privilegeLevel PrivilegeLevelModel, userOrRole UserModel, grantOption bool) error {
+func revokePrivileges(ctx context.Context, db *sql.DB, privileges []PrivilegeTypeModel, privilegeLevel PrivilegeLevelModel, userOrRole UserModel, revokeGrantOption bool) error {
 	var args []interface{}
 	sql := `REVOKE `
 
@@ -537,7 +543,7 @@ func revokePrivileges(ctx context.Context, db *sql.DB, privileges []PrivilegeTyp
 
 	sql += strings.Join(privilegesWithColumns, ",")
 
-	if grantOption {
+	if revokeGrantOption {
 		sql += `,GRANT OPTION`
 	}
 
