@@ -119,9 +119,6 @@ func (r *GrantPrivilegeResource) Schema(ctx context.Context, req resource.Schema
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.RequiresReplace(),
 						},
-						Validators: []validator.String{
-							stringvalidator.NoneOf("*"),
-						},
 					},
 					"table": schema.StringAttribute{
 						MarkdownDescription: "The table name to grant privileges.",
