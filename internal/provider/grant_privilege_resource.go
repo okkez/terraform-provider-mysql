@@ -99,7 +99,7 @@ func (r *GrantPrivilegeResource) Schema(ctx context.Context, req resource.Schema
 							MarkdownDescription: "The privilege name.",
 							Required:            true,
 							Validators: []validator.String{
-								stringvalidator.RegexMatches(regexp.MustCompile(`\A[A-Z ]+\z`), "priv_type must be upper cases"),
+								stringvalidator.RegexMatches(regexp.MustCompile(`\A[A-Z_ ]+\z`), "priv_type must be upper cases"),
 							},
 						},
 						"columns": schema.SetAttribute{
