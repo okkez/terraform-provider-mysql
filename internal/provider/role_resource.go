@@ -130,7 +130,7 @@ WHERE
 
 	var name, host string
 	if err = db.QueryRowContext(ctx, sql, args...).Scan(&name, &host); err != nil {
-		resp.Diagnostics.AddWarning(fmt.Sprintf("Role (%v) not found. Removing from state.", args), err.Error())
+		resp.Diagnostics.AddWarning(fmt.Sprintf("Role (%+v) not found. Removing from state.", args), err.Error())
 		resp.State.RemoveResource(ctx)
 	} else {
 		data.Name = types.StringValue(name)
