@@ -55,6 +55,7 @@ func TestAccUserResource(t *testing.T) {
 					resource.TestCheckResourceAttr("mysql_user.test", "name", users[2].GetName()),
 					resource.TestCheckResourceAttr("mysql_user.test", "host", users[2].GetHost()),
 					resource.TestCheckResourceAttr("mysql_user.test", "id", users[2].GetID()),
+					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.plugin", "caching_sha2_password"),
 					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.auth_string", "password"),
 				),
 			},
@@ -87,6 +88,7 @@ resource "mysql_user" "test" {
   host = %q
   auth_option {
     auth_string = "password"
+    plugin = "caching_sha2_password"
   }
 }
 `, name, host)

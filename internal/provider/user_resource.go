@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 
@@ -49,6 +51,12 @@ type AuthOptionModel struct {
 	Plugin         types.String `tfsdk:"plugin"`
 	AuthString     types.String `tfsdk:"auth_string"`
 	RandomPassword types.Bool   `tfsdk:"random_password"`
+}
+
+var AuthOptionModelTypes = map[string]attr.Type{
+	"plugin":          types.StringType,
+	"auth_string":     types.StringType,
+	"random_password": types.BoolType,
 }
 
 func (r *UserResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -216,6 +224,22 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	} else {
 		data.Name = types.StringValue(user)
 		data.Host = types.StringValue(host)
+
+		if !data.AuthOption.IsNull() {
+			var authOption AuthOptionModel
+			resp.Diagnostics.Append(data.AuthOption.As(ctx, &authOption, basetypes.ObjectAsOptions{})...)
+			authString := types.StringNull()
+			if !authOption.AuthString.IsNull() {
+				authString = authOption.AuthString
+			}
+
+			attributes := map[string]attr.Value{
+				"plugin":          types.StringValue(plugin),
+				"auth_string":     authString,
+				"random_password": authOption.RandomPassword,
+			}
+			data.AuthOption = types.ObjectValueMust(AuthOptionModelTypes, attributes)
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
