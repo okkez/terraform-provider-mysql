@@ -445,5 +445,5 @@ func findRole(roles []RoleModel, name, host string) RoleModel {
 			return role
 		}
 	}
-	return RoleModel{}
+	return NewRole("", "")
 }
