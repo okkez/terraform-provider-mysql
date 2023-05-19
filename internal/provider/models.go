@@ -68,3 +68,15 @@ func (r *RoleModel) GetHost() string {
 func (r *RoleModel) GetID() string {
 	return fmt.Sprintf("%s@%s", r.GetName(), r.GetHost())
 }
+
+type RoleModelRaw struct {
+	Name string `diff:"name"`
+	Host string `diff:"host"`
+}
+
+func NewRoleRaw(name, host string) RoleModelRaw {
+	return RoleModelRaw{
+		Name: name,
+		Host: host,
+	}
+}

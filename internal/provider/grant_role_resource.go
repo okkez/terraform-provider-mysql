@@ -37,7 +37,7 @@ type GrantRoleResource struct {
 // GrantRoleResourceModel describes the resource data model.
 type GrantRoleResourceModel struct {
 	ID          types.String `tfsdk:"id"`
-	Roles       types.Set    `tfsdk:"roles"`
+	Roles       types.Set    `tfsdk:"role"`
 	To          types.Object `tfsdk:"to"`
 	AdminOption types.Bool   `tfsdk:"admin_option"`
 }
@@ -53,11 +53,6 @@ func (r *GrantRoleResource) Schema(ctx context.Context, req resource.SchemaReque
 			"Use the [`mysql_grant_privilege`](./grant_privilege) resource to grant privileges to a user or a role.",
 		Attributes: map[string]schema.Attribute{
 			"id": utils.IDAttribute(),
-			"roles": schema.SetAttribute{
-				MarkdownDescription: "Sets the role to be granted to the user specified in the `to` block.",
-				Required:            true,
-				ElementType:         types.StringType,
-			},
 			"admin_option": schema.BoolAttribute{
 				MarkdownDescription: "If `true`, add `WITH ADMIN OPTION`. Defaults to `false`.",
 				Optional:            true,
@@ -71,6 +66,15 @@ func (r *GrantRoleResource) Schema(ctx context.Context, req resource.SchemaReque
 				Attributes: map[string]schema.Attribute{
 					"name": utils.NameAttribute("user or role", true),
 					"host": utils.HostAttribute("user or role", true),
+				},
+			},
+			"role": schema.SetNestedBlock{
+				MarkdownDescription: "Sets roles to be granted to the user specified in the `to` block.",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"name": utils.NameAttribute("role", false),
+						"host": utils.HostAttribute("role", false),
+					},
 				},
 			},
 		},
@@ -103,8 +107,8 @@ func (r *GrantRoleResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	var roles []string
-	data.Roles.ElementsAs(ctx, &roles, false)
+	var roles []RoleModel
+	resp.Diagnostics.Append(data.Roles.ElementsAs(ctx, &roles, false)...)
 
 	var userOrRole UserModel
 	resp.Diagnostics.Append(data.To.As(ctx, &userOrRole, basetypes.ObjectAsOptions{})...)
@@ -135,10 +139,8 @@ func (r *GrantRoleResource) Read(ctx context.Context, req resource.ReadRequest, 
 
 	var data *GrantRoleResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
+	var roles []RoleModel
+	resp.Diagnostics.Append(data.Roles.ElementsAs(ctx, &roles, false)...)
 	var userOrRole UserModel
 	resp.Diagnostics.Append(data.To.As(ctx, &userOrRole, basetypes.ObjectAsOptions{})...)
 	if resp.Diagnostics.HasError() {
@@ -170,21 +172,24 @@ WHERE
 	}
 	defer rows.Close()
 
-	var roles []attr.Value
+	var currentRoles []attr.Value
 	for rows.Next() {
 		var fromUser, fromHost, adminOption string
 		if err := rows.Scan(&fromUser, &fromHost, &adminOption); err != nil {
 			resp.Diagnostics.AddError("Failed scanning MySQL rows", err.Error())
 			return
 		}
-		roles = append(roles, types.StringValue(fromUser))
-		if adminOption == "Y" {
-			data.AdminOption = types.BoolValue(true)
-		} else {
-			data.AdminOption = types.BoolValue(false)
+		role := findRole(roles, fromUser, fromHost)
+		attributes := map[string]attr.Value{}
+		attributes["name"] = types.StringValue(fromUser)
+		attributes["host"] = types.StringNull()
+		if !role.Host.IsNull() {
+			attributes["host"] = types.StringValue(fromHost)
 		}
+		currentRoles = append(currentRoles, types.ObjectValueMust(RoleTypes, attributes))
+		data.AdminOption = types.BoolValue(adminOption == "Y")
 	}
-	data.Roles = types.SetValueMust(types.StringType, roles)
+	data.Roles = types.SetValueMust(types.ObjectType{AttrTypes: RoleTypes}, currentRoles)
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -204,36 +209,87 @@ func (r *GrantRoleResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 
-	var dataRoles, stateRoles []string
+	var dataRoles, stateRoles []RoleModel
 	data.Roles.ElementsAs(ctx, &dataRoles, false)
 	state.Roles.ElementsAs(ctx, &stateRoles, false)
+	var dataRolesRaw, stateRolesRaw []RoleModelRaw
+	for _, role := range dataRoles {
+		dataRolesRaw = append(dataRolesRaw, NewRoleRaw(role.GetName(), role.GetHost()))
+	}
+	for _, role := range stateRoles {
+		stateRolesRaw = append(stateRolesRaw, NewRoleRaw(role.GetName(), role.GetHost()))
+	}
 
-	changelog, err := diff.Diff(stateRoles, dataRoles)
+	changelog, err := diff.Diff(stateRolesRaw, dataRolesRaw)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed calculating diff", err.Error())
 		return
 	}
+	tflog.Info(ctx, fmt.Sprintf("\nchangelog=%+v\n", changelog))
 
-	var rolesToGrant, rolesToRevoke []string
+	var prev string
+	var rolesToGrantRaw, rolesToRevokeRaw []RoleModelRaw
+	var toGrantRaw, toRevokeRaw RoleModelRaw
 	for _, change := range changelog {
-		switch change.Type {
-		case "create":
-			if role, ok := change.To.(string); ok {
-				rolesToGrant = append(rolesToGrant, role)
+		if prev != change.Path[0] {
+			if len(toGrantRaw.Name) > 0 {
+				rolesToGrantRaw = append(rolesToGrantRaw, toGrantRaw)
 			}
-		case "update":
-			if role, ok := change.To.(string); ok {
-				rolesToGrant = append(rolesToGrant, role)
+			if len(toRevokeRaw.Name) > 0 {
+				rolesToRevokeRaw = append(rolesToRevokeRaw, toRevokeRaw)
 			}
-			if role, ok := change.From.(string); ok {
-				rolesToRevoke = append(rolesToRevoke, role)
-			}
-		case "delete":
-			if role, ok := change.From.(string); ok {
-				rolesToRevoke = append(rolesToRevoke, role)
+			toGrantRaw = NewRoleRaw("", "")
+			toRevokeRaw = NewRoleRaw("", "")
+		}
+		if change.Path[1] == "name" {
+			switch change.Type {
+			case "create":
+				if name, ok := change.To.(string); ok {
+					toGrantRaw.Name = name
+				}
+			case "update":
+				if name, ok := change.To.(string); ok {
+					toGrantRaw.Name = name
+				}
+				if name, ok := change.From.(string); ok {
+					toRevokeRaw.Name = name
+				}
+			case "delete":
+				if name, ok := change.From.(string); ok {
+					toRevokeRaw.Name = name
+				}
 			}
 		}
+		if change.Path[1] == "host" {
+			switch change.Type {
+			case "create":
+				if host, ok := change.To.(string); ok {
+					toGrantRaw.Host = host
+				}
+			case "update":
+				if host, ok := change.To.(string); ok {
+					toGrantRaw.Host = host
+				}
+				if host, ok := change.From.(string); ok {
+					toRevokeRaw.Host = host
+				}
+			case "delete":
+				if host, ok := change.From.(string); ok {
+					toRevokeRaw.Host = host
+				}
+			}
+		}
+		prev = change.Path[0]
 	}
+
+	if len(toGrantRaw.Name) > 0 {
+		rolesToGrantRaw = append(rolesToGrantRaw, toGrantRaw)
+	}
+	if len(toRevokeRaw.Name) > 0 {
+		rolesToRevokeRaw = append(rolesToRevokeRaw, toRevokeRaw)
+	}
+
+	tflog.Info(ctx, fmt.Sprintf("\ngrant=%+v\nrevoke=%+v\n", rolesToGrantRaw, rolesToRevokeRaw))
 
 	var userOrRole UserModel
 	resp.Diagnostics.Append(data.To.As(ctx, &userOrRole, basetypes.ObjectAsOptions{})...)
@@ -241,7 +297,12 @@ func (r *GrantRoleResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 
-	if len(rolesToRevoke) > 0 {
+	if len(rolesToRevokeRaw) > 0 {
+		var rolesToRevoke []RoleModel
+		for _, role := range rolesToRevokeRaw {
+			rolesToRevoke = append(rolesToRevoke, NewRole(role.Name, role.Host))
+		}
+		tflog.Info(ctx, fmt.Sprintf("\nrevoke=%+v\n", rolesToRevoke))
 		err := revokeRoles(ctx, db, userOrRole, rolesToRevoke)
 		if err != nil {
 			resp.Diagnostics.AddError(
@@ -251,7 +312,12 @@ func (r *GrantRoleResource) Update(ctx context.Context, req resource.UpdateReque
 		}
 	}
 
-	if len(rolesToGrant) > 0 {
+	if len(rolesToGrantRaw) > 0 {
+		var rolesToGrant []RoleModel
+		for _, role := range rolesToGrantRaw {
+			rolesToGrant = append(rolesToGrant, NewRole(role.Name, role.Host))
+		}
+		tflog.Info(ctx, fmt.Sprintf("\ngrant=%+v\n", rolesToGrant))
 		err := grantRoles(ctx, db, userOrRole, rolesToGrant, data.AdminOption.ValueBool())
 		if err != nil {
 			resp.Diagnostics.AddError(
@@ -280,11 +346,11 @@ func (r *GrantRoleResource) Delete(ctx context.Context, req resource.DeleteReque
 
 	var userOrRole UserModel
 	resp.Diagnostics.Append(data.To.As(ctx, &userOrRole, basetypes.ObjectAsOptions{})...)
+	var roles []RoleModel
+	resp.Diagnostics.Append(data.Roles.ElementsAs(ctx, &roles, false)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	var roles []string
-	data.Roles.ElementsAs(ctx, &roles, false)
 
 	err = revokeRoles(ctx, db, userOrRole, roles)
 
@@ -296,14 +362,20 @@ func (r *GrantRoleResource) Delete(ctx context.Context, req resource.DeleteReque
 	}
 }
 
-func grantRoles(ctx context.Context, db *sql.DB, to UserModel, roles []string, adminOption bool) error {
+func grantRoles(ctx context.Context, db *sql.DB, to UserModel, roles []RoleModel, adminOption bool) error {
 	var args []interface{}
 	sql := `GRANT`
 
 	placeholders := []string{}
 	for _, role := range roles {
-		placeholders = append(placeholders, "?")
-		args = append(args, role)
+		if role.Host.IsNull() || len(role.Host.ValueString()) == 0 {
+			placeholders = append(placeholders, "?")
+			args = append(args, role.Name.ValueString())
+		} else {
+			placeholders = append(placeholders, "?@?")
+			args = append(args, role.Name.ValueString())
+			args = append(args, role.Host.ValueString())
+		}
 	}
 	sql += fmt.Sprintf(` %s`, strings.Join(placeholders, ","))
 
@@ -325,14 +397,20 @@ func grantRoles(ctx context.Context, db *sql.DB, to UserModel, roles []string, a
 	return nil
 }
 
-func revokeRoles(ctx context.Context, db *sql.DB, to UserModel, roles []string) error {
+func revokeRoles(ctx context.Context, db *sql.DB, to UserModel, roles []RoleModel) error {
 	var args []interface{}
 	sql := `REVOKE`
 
 	placeholders := []string{}
 	for _, role := range roles {
-		placeholders = append(placeholders, "?")
-		args = append(args, role)
+		if role.Host.IsNull() || len(role.Host.ValueString()) == 0 {
+			placeholders = append(placeholders, "?")
+			args = append(args, role.Name.ValueString())
+		} else {
+			placeholders = append(placeholders, "?@?")
+			args = append(args, role.Name.ValueString())
+			args = append(args, role.Host.ValueString())
+		}
 	}
 	sql += fmt.Sprintf(` %s`, strings.Join(placeholders, ","))
 
@@ -359,4 +437,13 @@ func (r *GrantRoleResource) ImportState(ctx context.Context, req resource.Import
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(req.ID))...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("to").AtName("name"), types.StringValue(nameHost[0]))...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("to").AtName("host"), types.StringValue(nameHost[1]))...)
+}
+
+func findRole(roles []RoleModel, name, host string) RoleModel {
+	for _, role := range roles {
+		if role.Name.ValueString() == name && role.Host.ValueString() == host {
+			return role
+		}
+	}
+	return RoleModel{}
 }
