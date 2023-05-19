@@ -49,6 +49,7 @@ resource "mysql_user" "rds-user" {
 
 - `auth_option` (Block, Optional) Authentication configuration for the user (see [below for nested schema](#nestedblock--auth_option))
 - `host` (String) The source host of the user. Defaults to `%`
+- `lock` (Boolean) Lock account if set to `true`. Defaults to `false`
 
 ### Read-Only
 
