@@ -13,7 +13,7 @@ resource "mysql_grant_role" "app-user" {
   ]
 }
 
-resource "mysql_default_role" "test" {
+resource "mysql_default_roles" "test" {
   user = mysql_user.app.name
 
   default_role {
