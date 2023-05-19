@@ -22,17 +22,17 @@ func TestAccDefaultRoleResource(t *testing.T) {
 			{
 				Config: testAccDefaultRoleResource_Config(user.GetName(), role1.GetName(), role2.GetName(), "role1"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mysql_default_role.test", "id", user.GetID()),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "user", user.GetName()),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "host", user.GetHost()),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.#", "1"),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.name", role1.GetName()),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.host", "%"),
+					resource.TestCheckResourceAttr("mysql_default_roles.test", "id", user.GetID()),
+					resource.TestCheckResourceAttr("mysql_default_roles.test", "user", user.GetName()),
+					resource.TestCheckResourceAttr("mysql_default_roles.test", "host", user.GetHost()),
+					resource.TestCheckResourceAttr("mysql_default_roles.test", "default_role.#", "1"),
+					resource.TestCheckResourceAttr("mysql_default_roles.test", "default_role.0.name", role1.GetName()),
+					resource.TestCheckResourceAttr("mysql_default_roles.test", "default_role.0.host", "%"),
 				),
 			},
 			// ImportState testing
 			{
-				ResourceName:      "mysql_default_role.test",
+				ResourceName:      "mysql_default_roles.test",
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -40,21 +40,21 @@ func TestAccDefaultRoleResource(t *testing.T) {
 			{
 				Config: testAccDefaultRoleResource_Config(user.GetName(), role1.GetName(), role2.GetName(), "role2"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mysql_default_role.test", "id", user.GetID()),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "user", user.GetName()),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "host", user.GetHost()),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.#", "1"),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.name", role2.GetName()),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.0.host", "%"),
+					resource.TestCheckResourceAttr("mysql_default_roles.test", "id", user.GetID()),
+					resource.TestCheckResourceAttr("mysql_default_roles.test", "user", user.GetName()),
+					resource.TestCheckResourceAttr("mysql_default_roles.test", "host", user.GetHost()),
+					resource.TestCheckResourceAttr("mysql_default_roles.test", "default_role.#", "1"),
+					resource.TestCheckResourceAttr("mysql_default_roles.test", "default_role.0.name", role2.GetName()),
+					resource.TestCheckResourceAttr("mysql_default_roles.test", "default_role.0.host", "%"),
 				),
 			},
 			{
 				Config: testAccDefaultRoleResource_ConfigWithRoles(user.GetName(), role1.GetName(), role2.GetName()),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mysql_default_role.test", "id", user.GetID()),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "user", user.GetName()),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "host", user.GetHost()),
-					resource.TestCheckResourceAttr("mysql_default_role.test", "default_role.#", "2"),
+					resource.TestCheckResourceAttr("mysql_default_roles.test", "id", user.GetID()),
+					resource.TestCheckResourceAttr("mysql_default_roles.test", "user", user.GetName()),
+					resource.TestCheckResourceAttr("mysql_default_roles.test", "host", user.GetHost()),
+					resource.TestCheckResourceAttr("mysql_default_roles.test", "default_role.#", "2"),
 				),
 			},
 			// Delete testing automatically occurs in TestCase
@@ -79,7 +79,7 @@ resource "mysql_grant_role" "test" {
   }
   roles = [mysql_role.role1.name, mysql_role.role2.name]
 }
-resource "mysql_default_role" "test" {
+resource "mysql_default_roles" "test" {
   user = mysql_user.test.name
   default_role {
     name = mysql_role.%s.name
@@ -106,7 +106,7 @@ resource "mysql_grant_role" "test" {
   }
   roles = [mysql_role.role1.name, mysql_role.role2.name]
 }
-resource "mysql_default_role" "test" {
+resource "mysql_default_roles" "test" {
   user = mysql_user.test.name
   default_role {
     name = mysql_role.role1.name

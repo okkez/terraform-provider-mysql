@@ -42,7 +42,7 @@ type DefaultRolesResourceModel struct {
 }
 
 func (r *DefaultRolesResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_default_role"
+	resp.TypeName = req.ProviderTypeName + "_default_roles"
 }
 
 func (r *DefaultRolesResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
