@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 
@@ -44,6 +45,7 @@ type UserResourceModel struct {
 	ID         types.String `tfsdk:"id"`
 	Name       types.String `tfsdk:"name"`
 	Host       types.String `tfsdk:"host"`
+	Lock       types.Bool   `tfsdk:"lock"`
 	AuthOption types.Object `tfsdk:"auth_option"`
 }
 
@@ -76,6 +78,12 @@ func (r *UserResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 			"id":   utils.IDAttribute(),
 			"name": utils.NameAttribute("user", true),
 			"host": utils.HostAttribute("user", true),
+			"lock": schema.BoolAttribute{
+				MarkdownDescription: "Lock account if set to `true`. Defaults to `false`",
+				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
+			},
 		},
 		Blocks: map[string]schema.Block{
 			"auth_option": schema.SingleNestedBlock{
@@ -166,6 +174,9 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 			}
 		}
 	}
+	if data.Lock.ValueBool() {
+		sql += ` ACCOUNT LOCK`
+	}
 
 	tflog.Info(ctx, sql, map[string]any{"args": args})
 	if callExec {
@@ -215,29 +226,44 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	args = append(args, host)
 	args = append(args, user)
 
-	sql := `SELECT Host, User, plugin, authentication_string FROM mysql.user WHERE Host = ? AND User = ?`
+	sql := `
+SELECT
+  Host
+, User
+, plugin
+, authentication_string
+, account_locked
+FROM
+   mysql.user
+WHERE
+  Host = ?
+  AND User = ?
+`
 	tflog.Info(ctx, sql, map[string]any{"args": args})
-	var _host, _user, plugin, authString string
-	if err = db.QueryRowContext(ctx, sql, args...).Scan(&_host, &_user, &plugin, &authString); err != nil {
+	var _host, _user, plugin, authString, accountLocked string
+	if err = db.QueryRowContext(ctx, sql, args...).Scan(&_host, &_user, &plugin, &authString, &accountLocked); err != nil {
 		resp.State.RemoveResource(ctx)
 		return
 	} else {
 		data.Name = types.StringValue(user)
 		data.Host = types.StringValue(host)
+		data.Lock = types.BoolValue(accountLocked == "Y")
 
 		if !data.AuthOption.IsNull() {
 			var authOption AuthOptionModel
 			resp.Diagnostics.Append(data.AuthOption.As(ctx, &authOption, basetypes.ObjectAsOptions{})...)
-			authString := types.StringNull()
-			if !authOption.AuthString.IsNull() {
-				authString = authOption.AuthString
-			}
 
-			attributes := map[string]attr.Value{
-				"plugin":          types.StringValue(plugin),
-				"auth_string":     authString,
-				"random_password": authOption.RandomPassword,
+			attributes := map[string]attr.Value{}
+			attributes["plugin"] = types.StringNull()
+			if !authOption.Plugin.IsNull() {
+				attributes["plugin"] = types.StringValue(plugin)
 			}
+			attributes["auth_string"] = types.StringNull()
+			if !authOption.AuthString.IsNull() {
+				attributes["auth_string"] = authOption.AuthString
+			}
+			attributes["random_password"] = authOption.RandomPassword
+
 			data.AuthOption = types.ObjectValueMust(AuthOptionModelTypes, attributes)
 		}
 	}
@@ -291,6 +317,11 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 				sql += ` IDENTIFIED BY RANDOM PASSWORD`
 			}
 		}
+	}
+	if data.Lock.ValueBool() {
+		sql += ` ACCOUNT LOCK`
+	} else {
+		sql += ` ACCOUNT UNLOCK`
 	}
 
 	tflog.Info(ctx, sql, map[string]any{"args": args})
