@@ -237,6 +237,7 @@ func (r *GrantPrivilegeResource) Read(ctx context.Context, req resource.ReadRequ
 			resp.Diagnostics.AddError("Failed scanning MySQL rows", err.Error())
 			return
 		}
+		tflog.Info(ctx, fmt.Sprintf("\nGrant Statement: %s", grantStatement))
 		grantPrivilege, err := ParseGrantPrivilegeStatement(grantStatement)
 		if err != nil {
 			resp.Diagnostics.AddError("Failed parsing grant statement", err.Error())
@@ -249,11 +250,16 @@ func (r *GrantPrivilegeResource) Read(ctx context.Context, req resource.ReadRequ
 		data.GrantOption = types.BoolValue(grantPrivilege.GrantOption)
 
 		for _, priv := range grantPrivilege.Privileges {
-			if len(priv.Priv.String()) == 0 {
+			if len(priv.Priv.String()) == 0 && len(priv.Name) == 0 {
 				continue
 			}
 			privilegeTypeModelValue := map[string]attr.Value{}
-			privilegeTypeModelValue["priv_type"] = types.StringValue(strings.ToUpper(priv.Priv.String()))
+			if len(priv.Priv.String()) > 0 {
+				privilegeTypeModelValue["priv_type"] = types.StringValue(strings.ToUpper(priv.Priv.String()))
+			}
+			if len(priv.Name) > 0 {
+				privilegeTypeModelValue["priv_type"] = types.StringValue(strings.ToUpper(priv.Name))
+			}
 			if len(priv.Cols) == 0 {
 				privilegeTypeModelValue["columns"] = types.SetNull(types.StringType)
 			} else {
