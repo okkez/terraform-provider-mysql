@@ -77,7 +77,12 @@ resource "mysql_grant_role" "test" {
   to {
     name = mysql_user.test.name
   }
-  roles = [mysql_role.role1.name, mysql_role.role2.name]
+  role {
+    name = mysql_role.role1.name
+  }
+  role {
+    name = mysql_role.role2.name
+  }
 }
 resource "mysql_default_roles" "test" {
   user = mysql_user.test.name
@@ -104,7 +109,12 @@ resource "mysql_grant_role" "test" {
   to {
     name = mysql_user.test.name
   }
-  roles = [mysql_role.role1.name, mysql_role.role2.name]
+  role {
+    name = mysql_role.role1.name
+  }
+  role {
+    name = mysql_role.role2.name
+  }
 }
 resource "mysql_default_roles" "test" {
   user = mysql_user.test.name
