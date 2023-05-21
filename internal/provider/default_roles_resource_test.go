@@ -6,6 +6,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/okkez/terraform-provider-mysql/internal/utils"
 )
 
 func TestAccDefaultRoleResource(t *testing.T) {
@@ -20,7 +21,7 @@ func TestAccDefaultRoleResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccDefaultRoleResource_Config(user.GetName(), role1.GetName(), role2.GetName(), "role1"),
+				Config: testAccDefaultRoleResource_Config(t, user.GetName(), role1.GetName(), role2.GetName(), []string{"role1"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_default_roles.test", "id", user.GetID()),
 					resource.TestCheckResourceAttr("mysql_default_roles.test", "user", user.GetName()),
@@ -38,7 +39,7 @@ func TestAccDefaultRoleResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccDefaultRoleResource_Config(user.GetName(), role1.GetName(), role2.GetName(), "role2"),
+				Config: testAccDefaultRoleResource_Config(t, user.GetName(), role1.GetName(), role2.GetName(), []string{"role2"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_default_roles.test", "id", user.GetID()),
 					resource.TestCheckResourceAttr("mysql_default_roles.test", "user", user.GetName()),
@@ -49,7 +50,7 @@ func TestAccDefaultRoleResource(t *testing.T) {
 				),
 			},
 			{
-				Config: testAccDefaultRoleResource_ConfigWithRoles(user.GetName(), role1.GetName(), role2.GetName()),
+				Config: testAccDefaultRoleResource_Config(t, user.GetName(), role1.GetName(), role2.GetName(), []string{"role1", "role2"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_default_roles.test", "id", user.GetID()),
 					resource.TestCheckResourceAttr("mysql_default_roles.test", "user", user.GetName()),
@@ -62,16 +63,16 @@ func TestAccDefaultRoleResource(t *testing.T) {
 	})
 }
 
-func testAccDefaultRoleResource_Config(user, role1, role2, roleLabel string) string {
-	return fmt.Sprintf(`
+func testAccDefaultRoleResource_Config(t *testing.T, user, role1, role2 string, defaultRoles []string) string {
+	source := `
 resource "mysql_user" "test" {
-  name = %q
+  name = "{{ .User }}"
 }
 resource "mysql_role" "role1" {
-  name = %q
+  name = "{{ .Role1 }}"
 }
 resource "mysql_role" "role2" {
-  name = %q
+  name = "{{ .Role2 }}"
 }
 resource "mysql_grant_role" "test" {
   to {
@@ -86,47 +87,31 @@ resource "mysql_grant_role" "test" {
 }
 resource "mysql_default_roles" "test" {
   user = mysql_user.test.name
+  {{- range $i, $role := .DefaultRoles }}
   default_role {
-    name = mysql_role.%s.name
+    name = mysql_role.{{ $role }}.name
   }
+  {{- end }}
   depends_on = [mysql_grant_role.test]
 }
-`, user, role1, role2, roleLabel)
-}
-
-func testAccDefaultRoleResource_ConfigWithRoles(user, role1, role2 string) string {
-	return fmt.Sprintf(`
-resource "mysql_user" "test" {
-  name = %q
-}
-resource "mysql_role" "role1" {
-  name = %q
-}
-resource "mysql_role" "role2" {
-  name = %q
-}
-resource "mysql_grant_role" "test" {
-  to {
-    name = mysql_user.test.name
-  }
-  role {
-    name = mysql_role.role1.name
-  }
-  role {
-    name = mysql_role.role2.name
-  }
-}
-resource "mysql_default_roles" "test" {
-  user = mysql_user.test.name
-  default_role {
-    name = mysql_role.role1.name
-  }
-  default_role {
-    name = mysql_role.role2.name
-  }
-  depends_on = [mysql_grant_role.test]
-}
-`, user, role1, role2)
+`
+	data := struct {
+		User         string
+		Role1        string
+		Role2        string
+		DefaultRoles []string
+	}{
+		User:         user,
+		Role1:        role1,
+		Role2:        role2,
+		DefaultRoles: defaultRoles,
+	}
+	config, err := utils.Render(source, data)
+	if err != nil {
+		t.Fatal(err)
+		t.Fail()
+	}
+	return config
 }
 
 func testAccTestAccDefaultRoleResource_CheckDestroy(user UserModel) resource.TestCheckFunc {

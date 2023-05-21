@@ -1,14 +1,13 @@
 package provider
 
 import (
-	"bytes"
 	"fmt"
 	"math/rand"
 	"regexp"
 	"testing"
-	"text/template"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/okkez/terraform-provider-mysql/internal/utils"
 )
 
 func TestAccGrantPrivilegeResource(t *testing.T) {
@@ -21,7 +20,7 @@ func TestAccGrantPrivilegeResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccGrantPrivilegeResource_Config(database, user.GetName(), "SELECT"),
+				Config: testAccGrantPrivilegeResource_Config(t, database, user.GetName(), []string{"SELECT"}, []string{}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.#", "1"),
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.priv_type", "SELECT"),
@@ -41,7 +40,7 @@ func TestAccGrantPrivilegeResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccGrantPrivilegeResource_Config(database, user.GetName(), "ALL PRIVILEGES"),
+				Config: testAccGrantPrivilegeResource_Config(t, database, user.GetName(), []string{"ALL PRIVILEGES"}, []string{}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.#", "1"),
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.priv_type", "ALL PRIVILEGES"),
@@ -68,7 +67,7 @@ func TestAccGrantPrivilegeResource_LowerCase(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config:      testAccGrantPrivilegeResource_Config(database, user.GetName(), "select"),
+				Config:      testAccGrantPrivilegeResource_Config(t, database, user.GetName(), []string{"select"}, []string{}),
 				ExpectError: regexp.MustCompile(`must be upper cases`),
 			},
 		},
@@ -88,7 +87,7 @@ func TestAccGrantPrivilegeResource_Table(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccGrantPrivilegeResource_ConfigWithTable(database, table, user.GetName(), "SELECT"),
+				Config: testAccGrantPrivilegeResource_ConfigWithTable(t, database, table, user.GetName(), []string{"SELECT"}, []string{}, false),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.#", "1"),
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.priv_type", "SELECT"),
@@ -108,7 +107,7 @@ func TestAccGrantPrivilegeResource_Table(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccGrantPrivilegeResource_ConfigWithTable(database, table, user.GetName(), "ALL PRIVILEGES"),
+				Config: testAccGrantPrivilegeResource_ConfigWithTable(t, database, table, user.GetName(), []string{"ALL PRIVILEGES"}, []string{}, false),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.#", "1"),
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.priv_type", "ALL PRIVILEGES"),
@@ -138,7 +137,7 @@ func TestAccGrantPrivilegeResource_Columns(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccGrantPrivilegeResource_ConfigWithColumns(database, table, user.GetName(), "SELECT", `["name", "email"]`),
+				Config: testAccGrantPrivilegeResource_ConfigWithTable(t, database, table, user.GetName(), []string{"SELECT"}, []string{"name", "email"}, true),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.#", "1"),
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.priv_type", "SELECT"),
@@ -160,7 +159,7 @@ func TestAccGrantPrivilegeResource_Columns(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccGrantPrivilegeResource_ConfigWithColumns(database, table, user.GetName(), "SELECT", `["name", "email", "address"]`),
+				Config: testAccGrantPrivilegeResource_ConfigWithTable(t, database, table, user.GetName(), []string{"SELECT"}, []string{"name", "email", "address"}, true),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.#", "1"),
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.priv_type", "SELECT"),
@@ -176,7 +175,7 @@ func TestAccGrantPrivilegeResource_Columns(t *testing.T) {
 				),
 			},
 			{
-				Config: testAccGrantPrivilegeResource_ConfigWithColumns(database, table, user.GetName(), "SELECT", `["name", "email"]`),
+				Config: testAccGrantPrivilegeResource_ConfigWithTable(t, database, table, user.GetName(), []string{"SELECT"}, []string{"name", "email"}, true),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.#", "1"),
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.priv_type", "SELECT"),
@@ -191,7 +190,7 @@ func TestAccGrantPrivilegeResource_Columns(t *testing.T) {
 				),
 			},
 			{
-				Config: testAccGrantPrivilegeResource_ConfigWithColumns(database, table, user.GetName(), "SELECT", `["name", "address"]`),
+				Config: testAccGrantPrivilegeResource_ConfigWithTable(t, database, table, user.GetName(), []string{"SELECT"}, []string{"name", "address"}, true),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.#", "1"),
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.priv_type", "SELECT"),
@@ -206,7 +205,7 @@ func TestAccGrantPrivilegeResource_Columns(t *testing.T) {
 				),
 			},
 			{
-				Config: testAccGrantPrivilegeResource_ConfigWithPrivilegesDatabase(database, table, user.GetName(), `["name", "address"]`),
+				Config: testAccGrantPrivilegeResource_ConfigWithTable(t, database, table, user.GetName(), []string{"SELECT", "INSERT"}, []string{"name", "address"}, true),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.#", "2"),
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.priv_type", "INSERT"),
@@ -225,7 +224,7 @@ func TestAccGrantPrivilegeResource_Columns(t *testing.T) {
 				),
 			},
 			{
-				Config: testAccGrantPrivilegeResource_ConfigWithColumns(database, table, user.GetName(), "INSERT", `["name", "email"]`),
+				Config: testAccGrantPrivilegeResource_ConfigWithTable(t, database, table, user.GetName(), []string{"INSERT"}, []string{"name", "email"}, true),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.#", "1"),
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.priv_type", "INSERT"),
@@ -416,18 +415,27 @@ func TestAccGrantPrivilegeResource_StaticPrivileges(t *testing.T) {
 	})
 }
 
-func testAccGrantPrivilegeResource_Config(database, user, privilege string) string {
-	return fmt.Sprintf(`
+func testAccGrantPrivilegeResource_Config(t *testing.T, database, user string, privileges, columns []string) string {
+	source := `
 resource "mysql_database" "test" {
-  name = %q
+  name = "{{ .Database }}"
 }
 resource "mysql_user" "test" {
-  name = %q
+  name = "{{ .User }}"
 }
 resource "mysql_grant_privilege" "test" {
+  {{- range $1, $priv := .Privileges }}
   privilege {
-    priv_type = %q
+    priv_type = "{{ $priv }}"
+    {{- if gt (len $.Columns) 0 }}
+    columns = [
+      {{- range $_, $c := $.Columns }}
+      "{{ $c }}",
+      {{- end }}
+    ]
+    {{- end }}
   }
+  {{- end }}
   on {
     database = mysql_database.test.name
     table = "*"
@@ -437,91 +445,83 @@ resource "mysql_grant_privilege" "test" {
     host = mysql_user.test.host
   }
 }
-`, database, user, privilege)
+`
+	data := struct {
+		Database   string
+		User       string
+		Privileges []string
+		Columns    []string
+	}{
+		Database:   database,
+		User:       user,
+		Privileges: privileges,
+		Columns:    columns,
+	}
+	config, err := utils.Render(source, data)
+	if err != nil {
+		t.Fatal(err)
+		t.Fail()
+	}
+	return config
 }
 
-func testAccGrantPrivilegeResource_ConfigWithTable(database, table, user, privilege string) string {
-	return fmt.Sprintf(`
+func testAccGrantPrivilegeResource_ConfigWithTable(t *testing.T, database, table, user string, privileges, columns []string, grantOption bool) string {
+	source := `
 data "mysql_database" "test" {
-  database = %q
+  database = "{{ .Database }}"
 }
 resource "mysql_user" "test" {
-  name = %q
+  name = "{{ .User }}"
 }
 resource "mysql_grant_privilege" "test" {
+  {{- range $i, $priv := .Privileges }}
   privilege {
-    priv_type = %q
+    priv_type = "{{ $priv }}"
+    {{- if gt (len $.Columns) 0 }}
+    columns = [
+      {{- range $_, $c := $.Columns }}
+      "{{ $c }}",
+      {{- end }}
+    ]
+    {{- end }}
   }
+  {{- end }}
   on {
     database = data.mysql_database.test.database
-    table = %q
+    table = "{{ .Table }}"
   }
   to {
     name = mysql_user.test.name
     host = mysql_user.test.host
   }
+  grant_option = {{ .GrantOption }}
 }
-`, database, user, privilege, table)
-}
-
-func testAccGrantPrivilegeResource_ConfigWithColumns(database, table, user, privilege, columns string) string {
-	return fmt.Sprintf(`
-data "mysql_database" "test" {
-  database = %q
-}
-resource "mysql_user" "test" {
-  name = %q
-}
-resource "mysql_grant_privilege" "test" {
-  privilege {
-    priv_type = %q
-    columns = %s
-  }
-  on {
-    database = data.mysql_database.test.database
-    table = %q
-  }
-  to {
-    name = mysql_user.test.name
-    host = mysql_user.test.host
-  }
-  grant_option = true
-}
-`, database, user, privilege, columns, table)
-}
-
-func testAccGrantPrivilegeResource_ConfigWithPrivilegesDatabase(database, table, user, columns string) string {
-	return fmt.Sprintf(`
-data "mysql_database" "test" {
-  database = %q
-}
-resource "mysql_user" "test" {
-  name = %q
-}
-resource "mysql_grant_privilege" "test" {
-  privilege {
-    priv_type = "SELECT"
-    columns = %s
-  }
-  privilege {
-    priv_type = "INSERT"
-    columns = %s
-  }
-  on {
-    database = data.mysql_database.test.database
-    table = %q
-  }
-  to {
-    name = mysql_user.test.name
-    host = mysql_user.test.host
-  }
-  grant_option = true
-}
-`, database, user, columns, columns, table)
+`
+	data := struct {
+		Database    string
+		Table       string
+		User        string
+		Privileges  []string
+		Columns     []string
+		GrantOption bool
+	}{
+		Database:    database,
+		Table:       table,
+		User:        user,
+		Privileges:  privileges,
+		Columns:     columns,
+		GrantOption: grantOption,
+	}
+	config, err := utils.Render(source, data)
+	if err != nil {
+		t.Fatal(err)
+		t.Fail()
+	}
+	return config
 }
 
 func testAccGrantPrivilegeResource_ConfigWithPrivileges(t *testing.T, user string, privileges []string) string {
-	configTemplate := `
+	source := `
 resource "mysql_user" "test" {
   name = "{{ .User }}"
 }
@@ -541,24 +541,19 @@ resource "mysql_grant_privilege" "test" {
   }
 }
 `
-	tpl, err := template.New("main.tf").Parse(configTemplate)
-	if err != nil {
-		t.Fatal(err)
-		t.Fail()
-	}
-	w := new(bytes.Buffer)
-	err = tpl.Execute(w, struct {
+	data := struct {
 		User       string
 		Privileges []string
 	}{
 		User:       user,
 		Privileges: privileges,
-	})
+	}
+	config, err := utils.Render(source, data)
 	if err != nil {
 		t.Fatal(err)
 		t.Fail()
 	}
-	return string(w.Bytes())
+	return config
 }
 
 func testAccGrantPrivilegeResource_PrepareTable(t *testing.T, database, table string) {

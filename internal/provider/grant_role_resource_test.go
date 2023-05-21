@@ -1,29 +1,30 @@
 package provider
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/okkez/terraform-provider-mysql/internal/utils"
 )
 
 func TestAccGrantRoleResource(t *testing.T) {
 	user := NewRandomUser("test-user", "%")
+	role0 := NewRandomRole("test-role0", "%")
 	role1 := NewRandomRole("test-role1", "%")
-	role2 := NewRandomRole("test-role2", "%")
-	t.Logf("user: %s, role1: %s, role2: %s", user.GetName(), role1.GetName(), role2.GetName())
+	roles := []RoleModel{role0, role1}
+	t.Logf("user: %s, role1: %s, role2: %s", user.GetName(), role0.GetName(), role1.GetName())
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccGrantRoleResource_Config(user.GetName(), role1.GetName(), role2.GetName(), "role1"),
+				Config: testAccGrantRoleResource_Config(t, user.GetName(), roles, []string{"role0"}, false),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_grant_role.test", "to.name", user.GetName()),
 					resource.TestCheckResourceAttr("mysql_grant_role.test", "to.host", user.GetHost()),
 					resource.TestCheckResourceAttr("mysql_grant_role.test", "role.#", "1"),
-					resource.TestCheckResourceAttr("mysql_grant_role.test", "role.0.name", role1.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "role.0.name", role0.GetName()),
 					resource.TestCheckResourceAttr("mysql_grant_role.test", "id", user.GetID()),
 				),
 			},
@@ -36,28 +37,28 @@ func TestAccGrantRoleResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccGrantRoleResource_Config(user.GetName(), role1.GetName(), role2.GetName(), "role2"),
+				Config: testAccGrantRoleResource_Config(t, user.GetName(), roles, []string{"role1"}, false),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_grant_role.test", "to.name", user.GetName()),
 					resource.TestCheckResourceAttr("mysql_grant_role.test", "to.host", user.GetHost()),
 					resource.TestCheckResourceAttr("mysql_grant_role.test", "role.#", "1"),
-					resource.TestCheckResourceAttr("mysql_grant_role.test", "role.0.name", role2.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "role.0.name", role1.GetName()),
 					resource.TestCheckResourceAttr("mysql_grant_role.test", "id", user.GetID()),
 				),
 			},
 			{
-				Config: testAccGrantRoleResource_ConfigWithRoles(user.GetName(), role1.GetName(), role2.GetName()),
+				Config: testAccGrantRoleResource_Config(t, user.GetName(), roles, []string{"role0", "role1"}, false),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_grant_role.test", "to.name", user.GetName()),
 					resource.TestCheckResourceAttr("mysql_grant_role.test", "to.host", user.GetHost()),
 					resource.TestCheckResourceAttr("mysql_grant_role.test", "role.#", "2"),
-					resource.TestCheckResourceAttr("mysql_grant_role.test", "role.0.name", role1.GetName()),
-					resource.TestCheckResourceAttr("mysql_grant_role.test", "role.1.name", role2.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "role.0.name", role0.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "role.1.name", role1.GetName()),
 					resource.TestCheckResourceAttr("mysql_grant_role.test", "id", user.GetID()),
 				),
 			},
 			{
-				Config: testAccGrantRoleResource_Config(user.GetName(), role1.GetName(), role2.GetName(), "role1"),
+				Config: testAccGrantRoleResource_Config(t, user.GetName(), roles, []string{"role1"}, false),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_grant_role.test", "to.name", user.GetName()),
 					resource.TestCheckResourceAttr("mysql_grant_role.test", "to.host", user.GetHost()),
@@ -67,13 +68,13 @@ func TestAccGrantRoleResource(t *testing.T) {
 				),
 			},
 			{
-				Config: testAccGrantRoleResource_ConfigWithHost(user.GetName(), role1.GetName(), role2.GetName(), "role2"),
+				Config: testAccGrantRoleResource_Config(t, user.GetName(), roles, []string{"role1"}, true),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_grant_role.test", "to.name", user.GetName()),
 					resource.TestCheckResourceAttr("mysql_grant_role.test", "to.host", user.GetHost()),
 					resource.TestCheckResourceAttr("mysql_grant_role.test", "role.#", "1"),
-					resource.TestCheckResourceAttr("mysql_grant_role.test", "role.0.name", role2.GetName()),
-					resource.TestCheckResourceAttr("mysql_grant_role.test", "role.0.host", role2.GetHost()),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "role.0.name", role1.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_role.test", "role.0.host", role1.GetHost()),
 					resource.TestCheckResourceAttr("mysql_grant_role.test", "id", user.GetID()),
 				),
 			},
@@ -82,76 +83,49 @@ func TestAccGrantRoleResource(t *testing.T) {
 	})
 }
 
-func testAccGrantRoleResource_Config(user, role1, role2, roleLabel string) string {
-	return fmt.Sprintf(`
+func testAccGrantRoleResource_Config(t *testing.T, user string, roles []RoleModel, grantedRoles []string, withHost bool) string {
+	source := `
 resource "mysql_user" "test" {
-  name = %q
+  name = "{{ .User }}"
 }
-resource "mysql_role" "role1" {
-  name = %q
+{{- range $i, $role := .Roles }}
+resource "mysql_role" "role{{ $i }}" {
+  name = "{{ $role.GetName }}"
+  {{- if $.WithHost }}
+  host = "%"
+  {{- end }}
 }
-resource "mysql_role" "role2" {
-  name = %q
-}
+{{- end }}
 resource "mysql_grant_role" "test" {
   to {
     name = mysql_user.test.name
   }
+  {{- range $1, $role := .GrantedRoles }}
   role {
-    name = mysql_role.%s.name
+    name = mysql_role.{{ $role }}.name
+    {{- if $.WithHost }}
+    host = "%"
+    {{- end }}
   }
+  {{- end }}
 }
-`, user, role1, role2, roleLabel)
-}
-
-func testAccGrantRoleResource_ConfigWithHost(user, role1, role2, roleLabel string) string {
-	return fmt.Sprintf(`
-resource "mysql_user" "test" {
-  name = %q
-  host = "%%"
-}
-resource "mysql_role" "role1" {
-  name = %q
-  host = "%%"
-}
-resource "mysql_role" "role2" {
-  name = %q
-  host = "%%"
-}
-resource "mysql_grant_role" "test" {
-  to {
-    name = mysql_user.test.name
-    host = "%%"
-  }
-  role {
-    name = mysql_role.%s.name
-    host = "%%"
-  }
-}
-`, user, role1, role2, roleLabel)
-}
-
-func testAccGrantRoleResource_ConfigWithRoles(user, role1, role2 string) string {
-	return fmt.Sprintf(`
-resource "mysql_user" "test" {
-  name = %q
-}
-resource "mysql_role" "role1" {
-  name = %q
-}
-resource "mysql_role" "role2" {
-  name = %q
-}
-resource "mysql_grant_role" "test" {
-  to {
-    name = mysql_user.test.name
-  }
-  role {
-    name = mysql_role.role1.name
-  }
-  role {
-    name = mysql_role.role2.name
-  }
-}
-`, user, role1, role2)
+`
+	data := struct {
+		User         string
+		Roles        []RoleModel
+		GrantedRoles []string
+		WithHost     bool
+	}{
+		User:         user,
+		Roles:        roles,
+		GrantedRoles: grantedRoles,
+		WithHost:     withHost,
+	}
+	config, err := utils.Render(source, data)
+	if err != nil {
+		t.Fatal(err)
+		t.Fail()
+	}
+	t.Log(config)
+	return config
 }
