@@ -417,6 +417,25 @@ func (r *GrantPrivilegeResource) Update(ctx context.Context, req resource.Update
 		}
 	}
 
+	if !state.GrantOption.ValueBool() && data.GrantOption.ValueBool() {
+		err := grantPrivileges(ctx, db, dataPrivileges, privilegeLevel, userOrRole, data.GrantOption.ValueBool())
+		if err != nil {
+			resp.Diagnostics.AddError(
+				fmt.Sprintf("Failed executing GRANT statement (%s)", data.ID.ValueString()),
+				err.Error())
+			return
+		}
+	}
+	if state.GrantOption.ValueBool() && !data.GrantOption.ValueBool() {
+		err := revokePrivileges(ctx, db, []PrivilegeTypeModel{}, privilegeLevel, userOrRole, true)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				fmt.Sprintf("Failed executing REVOKE statement (%s)", data.ID.ValueString()),
+				err.Error())
+			return
+		}
+	}
+
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -547,7 +566,11 @@ func revokePrivileges(ctx context.Context, db *sql.DB, privileges []PrivilegeTyp
 	sql += strings.Join(privilegesWithColumns, ",")
 
 	if revokeGrantOption {
-		sql += `,GRANT OPTION`
+		if len(privileges) > 0 {
+			sql += ` ,GRANT OPTION`
+		} else {
+			sql += ` GRANT OPTION`
+		}
 	}
 
 	sql += ` ON`

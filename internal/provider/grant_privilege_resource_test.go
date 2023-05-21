@@ -119,6 +119,146 @@ func TestAccGrantPrivilegeResource_Table(t *testing.T) {
 					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "grant_option", "false"),
 				),
 			},
+			{
+				Config: testAccGrantPrivilegeResource_ConfigWithTable(t, database, table, user.GetName(), []string{"SELECT", "INSERT"}, []string{}, false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.#", "2"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.priv_type", "INSERT"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.columns.#", "0"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.1.priv_type", "SELECT"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.1.columns.#", "0"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "on.database", database),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "on.table", table),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "to.name", user.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "to.host", user.GetHost()),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "grant_option", "false"),
+				),
+			},
+			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
+func TestAccGrantPrivilegeResource_GrantOption(t *testing.T) {
+	database := fmt.Sprintf("test_database_%04d", rand.Intn(1000))
+	table := fmt.Sprintf("test_table_%04d", rand.Intn(1000))
+	testAccGrantPrivilegeResource_PrepareTable(t, database, table)
+	t.Cleanup(testAccGrantPrivilegeResource_Cleanup(t, database))
+	user := NewRandomUser("test-user", "%")
+	t.Logf("database: %s table: %s, user: %s", database, table, user.GetID())
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create and Read testing
+			{
+				Config: testAccGrantPrivilegeResource_ConfigWithTable(t, database, table, user.GetName(), []string{"SELECT"}, []string{}, false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.#", "1"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.priv_type", "SELECT"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.columns.#", "0"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "on.database", database),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "on.table", table),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "to.name", user.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "to.host", user.GetHost()),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "grant_option", "false"),
+				),
+			},
+			// ImportState testing
+			{
+				ResourceName:      "mysql_grant_privilege.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			// Update and Read testing
+			{
+				Config: testAccGrantPrivilegeResource_ConfigWithTable(t, database, table, user.GetName(), []string{"SELECT"}, []string{}, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.#", "1"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.priv_type", "SELECT"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.columns.#", "0"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "on.database", database),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "on.table", table),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "to.name", user.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "to.host", user.GetHost()),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "grant_option", "true"),
+				),
+			},
+			{
+				Config: testAccGrantPrivilegeResource_ConfigWithTable(t, database, table, user.GetName(), []string{"SELECT"}, []string{}, false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.#", "1"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.priv_type", "SELECT"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.columns.#", "0"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "on.database", database),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "on.table", table),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "to.name", user.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "to.host", user.GetHost()),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "grant_option", "false"),
+				),
+			},
+			{
+				Config: testAccGrantPrivilegeResource_ConfigWithTable(t, database, table, user.GetName(), []string{"SELECT", "INSERT"}, []string{}, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.#", "2"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.priv_type", "INSERT"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.columns.#", "0"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.1.priv_type", "SELECT"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.1.columns.#", "0"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "on.database", database),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "on.table", table),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "to.name", user.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "to.host", user.GetHost()),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "grant_option", "true"),
+				),
+			},
+			{
+				Config: testAccGrantPrivilegeResource_ConfigWithTable(t, database, table, user.GetName(), []string{"SELECT", "INSERT", "UPDATE"}, []string{}, false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.#", "3"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.priv_type", "INSERT"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.columns.#", "0"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.1.priv_type", "SELECT"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.1.columns.#", "0"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.2.priv_type", "UPDATE"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.2.columns.#", "0"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "on.database", database),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "on.table", table),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "to.name", user.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "to.host", user.GetHost()),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "grant_option", "false"),
+				),
+			},
+			{
+				Config: testAccGrantPrivilegeResource_ConfigWithTable(t, database, table, user.GetName(), []string{"SELECT", "INSERT", "UPDATE"}, []string{}, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.#", "3"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.priv_type", "INSERT"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.columns.#", "0"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.1.priv_type", "SELECT"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.1.columns.#", "0"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.2.priv_type", "UPDATE"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.2.columns.#", "0"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "on.database", database),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "on.table", table),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "to.name", user.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "to.host", user.GetHost()),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "grant_option", "true"),
+				),
+			},
+			{
+				Config: testAccGrantPrivilegeResource_ConfigWithTable(t, database, table, user.GetName(), []string{"SELECT"}, []string{}, false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.#", "1"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.priv_type", "SELECT"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.0.columns.#", "0"),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "on.database", database),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "on.table", table),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "to.name", user.GetName()),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "to.host", user.GetHost()),
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "grant_option", "false"),
+				),
+			},
 			// Delete testing automatically occurs in TestCase
 		},
 	})
