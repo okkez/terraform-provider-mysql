@@ -6,6 +6,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/okkez/terraform-provider-mysql/internal/utils"
 )
 
 func TestAccUserResource(t *testing.T) {
@@ -14,6 +15,7 @@ func TestAccUserResource(t *testing.T) {
 		NewRandomUser("test-user", "%"),
 		NewRandomUser("test-user", "example.com"),
 	}
+	t.Logf("%+v\n", users)
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		CheckDestroy:             testAccUserResource_CheckDestroy(users),
@@ -21,7 +23,7 @@ func TestAccUserResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccUserResource_Config(users[0].GetName()),
+				Config: testAccUserResource_Config(t, users[0].GetName(), ""),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_user.test", "name", users[0].GetName()),
 					resource.TestCheckResourceAttr("mysql_user.test", "id", users[0].GetID()),
@@ -35,14 +37,14 @@ func TestAccUserResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccUserResource_Config(users[1].GetName()),
+				Config: testAccUserResource_Config(t, users[1].GetName(), ""),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_user.test", "name", users[1].GetName()),
 					resource.TestCheckResourceAttr("mysql_user.test", "id", users[1].GetID()),
 				),
 			},
 			{
-				Config: testAccUserResource_ConfigWithHost(users[2].GetName(), users[2].GetHost()),
+				Config: testAccUserResource_Config(t, users[2].GetName(), users[2].GetHost()),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_user.test", "name", users[2].GetName()),
 					resource.TestCheckResourceAttr("mysql_user.test", "host", users[2].GetHost()),
@@ -50,43 +52,11 @@ func TestAccUserResource(t *testing.T) {
 				),
 			},
 			{
-				Config: testAccUserResource_ConfigWithAuth(users[2].GetName(), users[2].GetHost()),
+				Config: testAccUserResource_ConfigWithAuth(t, users[2].GetName(), users[2].GetHost()),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_user.test", "name", users[2].GetName()),
 					resource.TestCheckResourceAttr("mysql_user.test", "host", users[2].GetHost()),
 					resource.TestCheckResourceAttr("mysql_user.test", "id", users[2].GetID()),
-					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.auth_string", "password"),
-				),
-			},
-			{
-				Config: testAccUserResource_ConfigWithAuthPlugin(users[2].GetName(), users[2].GetHost()),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mysql_user.test", "name", users[2].GetName()),
-					resource.TestCheckResourceAttr("mysql_user.test", "host", users[2].GetHost()),
-					resource.TestCheckResourceAttr("mysql_user.test", "id", users[2].GetID()),
-					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.plugin", "caching_sha2_password"),
-					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.auth_string", "password"),
-				),
-			},
-			{
-				Config: testAccUserResource_ConfigWithLock(users[2].GetName(), users[2].GetHost(), true),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mysql_user.test", "name", users[2].GetName()),
-					resource.TestCheckResourceAttr("mysql_user.test", "host", users[2].GetHost()),
-					resource.TestCheckResourceAttr("mysql_user.test", "id", users[2].GetID()),
-					resource.TestCheckResourceAttr("mysql_user.test", "lock", "true"),
-					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.plugin", "caching_sha2_password"),
-					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.auth_string", "password"),
-				),
-			},
-			{
-				Config: testAccUserResource_ConfigWithLock(users[2].GetName(), users[2].GetHost(), false),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("mysql_user.test", "name", users[2].GetName()),
-					resource.TestCheckResourceAttr("mysql_user.test", "host", users[2].GetHost()),
-					resource.TestCheckResourceAttr("mysql_user.test", "id", users[2].GetID()),
-					resource.TestCheckResourceAttr("mysql_user.test", "lock", "false"),
-					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.plugin", "caching_sha2_password"),
 					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.auth_string", "password"),
 				),
 			},
@@ -95,60 +65,202 @@ func TestAccUserResource(t *testing.T) {
 	})
 }
 
-func testAccUserResource_Config(name string) string {
-	return fmt.Sprintf(`
-resource "mysql_user" "test" {
-  name = %q
-}
-`, name)
+func TestAccUserResource_Plugin(t *testing.T) {
+	users := []UserModel{
+		NewRandomUser("test-user", "%"),
+		NewRandomUser("test-user", "%"),
+		NewRandomUser("test-user", "example.com"),
+	}
+	t.Logf("%+v\n", users)
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		CheckDestroy:             testAccUserResource_CheckDestroy(users),
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create and Read testing
+			{
+				Config: testAccUserResource_ConfigWithAuthPlugin(t, users[2].GetName(), users[2].GetHost(), "mysql_native_password"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_user.test", "name", users[2].GetName()),
+					resource.TestCheckResourceAttr("mysql_user.test", "host", users[2].GetHost()),
+					resource.TestCheckResourceAttr("mysql_user.test", "id", users[2].GetID()),
+					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.plugin", "mysql_native_password"),
+				),
+			},
+			// ImportState testing
+			{
+				ResourceName:      "mysql_user.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			// Update and Read testing
+			{
+				Config: testAccUserResource_ConfigWithAuthPlugin(t, users[2].GetName(), users[2].GetHost(), "caching_sha2_password"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_user.test", "name", users[2].GetName()),
+					resource.TestCheckResourceAttr("mysql_user.test", "host", users[2].GetHost()),
+					resource.TestCheckResourceAttr("mysql_user.test", "id", users[2].GetID()),
+					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.plugin", "caching_sha2_password"),
+				),
+			},
+			{
+				Config: testAccUserResource_Config(t, users[2].GetName(), users[2].GetHost()),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_user.test", "name", users[2].GetName()),
+					resource.TestCheckResourceAttr("mysql_user.test", "host", users[2].GetHost()),
+					resource.TestCheckResourceAttr("mysql_user.test", "id", users[2].GetID()),
+					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.%", "0"),
+				),
+			},
+			// Delete testing automatically occurs in TestCase
+		},
+	})
 }
 
-func testAccUserResource_ConfigWithHost(name, host string) string {
-	return fmt.Sprintf(`
-resource "mysql_user" "test" {
-  name = %q
-  host = %q
-}
-`, name, host)
+func TestAccUserResource_Lock(t *testing.T) {
+	users := []UserModel{
+		NewRandomUser("test-user", "%"),
+		NewRandomUser("test-user", "%"),
+		NewRandomUser("test-user", "example.com"),
+	}
+	t.Logf("%+v\n", users)
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		CheckDestroy:             testAccUserResource_CheckDestroy(users),
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create and Read testing
+			{
+				Config: testAccUserResource_ConfigWithLock(t, users[2].GetName(), users[2].GetHost(), true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_user.test", "name", users[2].GetName()),
+					resource.TestCheckResourceAttr("mysql_user.test", "host", users[2].GetHost()),
+					resource.TestCheckResourceAttr("mysql_user.test", "id", users[2].GetID()),
+					resource.TestCheckResourceAttr("mysql_user.test", "lock", "true"),
+				),
+			},
+			// ImportState testing
+			{
+				ResourceName:      "mysql_user.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			// Update and Read testing
+			{
+				Config: testAccUserResource_ConfigWithLock(t, users[2].GetName(), users[2].GetHost(), false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_user.test", "name", users[2].GetName()),
+					resource.TestCheckResourceAttr("mysql_user.test", "host", users[2].GetHost()),
+					resource.TestCheckResourceAttr("mysql_user.test", "id", users[2].GetID()),
+					resource.TestCheckResourceAttr("mysql_user.test", "lock", "false"),
+				),
+			},
+			// Delete testing automatically occurs in TestCase
+		},
+	})
 }
 
-func testAccUserResource_ConfigWithAuth(name, host string) string {
-	return fmt.Sprintf(`
+func testAccUserResource_Config(t *testing.T, name, host string) string {
+	source := `
 resource "mysql_user" "test" {
-  name = %q
-  host = %q
+  name = "{{ .Name }}"
+  {{- if gt (len .Host) 0 }}
+  host = "{{ .Host }}"
+  {{- end }}
+}
+`
+	data := struct {
+		Name string
+		Host string
+	}{
+		Name: name,
+		Host: host,
+	}
+	config, err := utils.Render(source, data)
+	if err != nil {
+		t.Fatal(err)
+		t.Fail()
+	}
+	return config
+}
+
+func testAccUserResource_ConfigWithAuth(t *testing.T, name, host string) string {
+	source := `
+resource "mysql_user" "test" {
+  name = "{{ .Name }}"
+  {{- if gt (len .Host) 0 }}
+  host = "{{ .Host }}"
+  {{- end }}
   auth_option {
     auth_string = "password"
   }
 }
-`, name, host)
+`
+	data := struct {
+		Name string
+		Host string
+	}{
+		Name: name,
+		Host: host,
+	}
+	config, err := utils.Render(source, data)
+	if err != nil {
+		t.Fatal(err)
+		t.Fail()
+	}
+	return config
 }
 
-func testAccUserResource_ConfigWithAuthPlugin(name, host string) string {
-	return fmt.Sprintf(`
+func testAccUserResource_ConfigWithAuthPlugin(t *testing.T, name, host, plugin string) string {
+	source := `
 resource "mysql_user" "test" {
-  name = %q
-  host = %q
+  name = "{{ .Name }}"
+  host = "{{ .Host }}"
   auth_option {
-    auth_string = "password"
-    plugin = "caching_sha2_password"
+    plugin = "{{ .Plugin }}"
   }
 }
-`, name, host)
+`
+	data := struct {
+		Name   string
+		Host   string
+		Plugin string
+	}{
+		Name:   name,
+		Host:   host,
+		Plugin: plugin,
+	}
+	config, err := utils.Render(source, data)
+	if err != nil {
+		t.Fatal(err)
+		t.Fail()
+	}
+	return config
 }
 
-func testAccUserResource_ConfigWithLock(name, host string, lock bool) string {
-	return fmt.Sprintf(`
+func testAccUserResource_ConfigWithLock(t *testing.T, name, host string, lock bool) string {
+	source := `
 resource "mysql_user" "test" {
-  name = %q
-  host = %q
-  lock = %t
-  auth_option {
-    auth_string = "password"
-    plugin = "caching_sha2_password"
-  }
+  name = "{{ .Name }}"
+  host = "{{ .Host }}"
+  lock = {{ .Lock }}
 }
-`, name, host, lock)
+`
+	data := struct {
+		Name string
+		Host string
+		Lock bool
+	}{
+		Name: name,
+		Host: host,
+		Lock: lock,
+	}
+	config, err := utils.Render(source, data)
+	if err != nil {
+		t.Fatal(err)
+		t.Fail()
+	}
+	return config
 }
 
 func testAccUserResource_CheckDestroy(users []UserModel) resource.TestCheckFunc {

@@ -152,25 +152,27 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 	if !data.AuthOption.IsNull() {
 		var authOption *AuthOptionModel
 		resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("auth_option"), &authOption)...)
-		if !authOption.Plugin.IsNull() {
-			plugin := authOption.Plugin.ValueString()
-			if !authOption.AuthString.IsNull() {
-				if plugin == awsAuthenticationPlugin {
-					sql += fmt.Sprintf(` IDENTIFIED WITH %s AS 'RDS'`, plugin)
-				} else {
-					sql += fmt.Sprintf(` IDENTIFIED WITH %s BY ?`, plugin)
-					args = append(args, authOption.AuthString.ValueString())
-				}
-			} else if authOption.RandomPassword.ValueBool() {
-				sql += fmt.Sprintf(` IDENTIFIED WITH %s BY RANDOM PASSWORD`, plugin)
-			}
-		} else {
-			if !authOption.AuthString.IsNull() {
+		if authOption.Plugin.IsNull() {
+			if authOption.RandomPassword.ValueBool() {
+				sql += ` IDENTIFIED BY RANDOM PASSWORD`
+			} else if !authOption.AuthString.IsNull() {
 				sql += ` IDENTIFIED BY ?`
 				args = append(args, authOption.AuthString.ValueString())
-			} else if authOption.RandomPassword.ValueBool() {
-				sql += ` IDENTIFIED BY RANDOM PASSWORD`
-				callExec = false
+			} else {
+				resp.Diagnostics.AddWarning("Could not add IDENTIFIED clause without plugin", "")
+			}
+		} else {
+			plugin := authOption.Plugin.ValueString()
+			if plugin == awsAuthenticationPlugin {
+				sql += fmt.Sprintf(` IDENTIFIED WITH %s AS 'RDS'`, plugin)
+			} else {
+				sql += fmt.Sprintf(` IDENTIFIED WITH %s`, plugin)
+				if authOption.RandomPassword.ValueBool() {
+					sql += ` BY RANDOM PASSWORD`
+				} else if !authOption.AuthString.IsNull() {
+					sql += ` BY ?`
+					args = append(args, authOption.AuthString.ValueString())
+				}
 			}
 		}
 	}
@@ -249,7 +251,23 @@ WHERE
 		data.Host = types.StringValue(host)
 		data.Lock = types.BoolValue(accountLocked == "Y")
 
-		if !data.AuthOption.IsNull() {
+		if data.AuthOption.IsNull() {
+			// See https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_default_authentication_plugin
+			var defaultAuthenticationPlugin string
+			if err := db.QueryRowContext(ctx, "SELECT @@default_authentication_plugin").Scan(&defaultAuthenticationPlugin); err != nil {
+				resp.Diagnostics.AddError("Failed to fetching @@default_authentication_plugin", err.Error())
+				return
+			}
+			tflog.Info(ctx, fmt.Sprintf("default_authentication_plugin=%s", defaultAuthenticationPlugin))
+			if plugin != defaultAuthenticationPlugin {
+				attributes := map[string]attr.Value{
+					"plugin":          types.StringValue(plugin),
+					"auth_string":     types.StringNull(),
+					"random_password": types.BoolNull(),
+				}
+				data.AuthOption = types.ObjectValueMust(AuthOptionModelTypes, attributes)
+			}
+		} else {
 			var authOption AuthOptionModel
 			resp.Diagnostics.Append(data.AuthOption.As(ctx, &authOption, basetypes.ObjectAsOptions{})...)
 
@@ -297,24 +315,27 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	if !data.AuthOption.IsNull() {
 		var authOption *AuthOptionModel
 		resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("auth_option"), &authOption)...)
-		if !authOption.Plugin.IsNull() {
-			plugin := authOption.Plugin.ValueString()
-			if !authOption.AuthString.IsNull() {
-				if plugin == awsAuthenticationPlugin {
-					sql += fmt.Sprintf(` IDENTIFIED WITH %s AS 'RDS'`, plugin)
-				} else {
-					sql += fmt.Sprintf(` IDENTIFIED WITH %s BY ?`, plugin)
-					args = append(args, authOption.AuthString.ValueString())
-				}
-			} else if authOption.RandomPassword.ValueBool() {
-				sql += fmt.Sprintf(` IDENTIFIED WITH %s BY RANDOM PASSWORD`, plugin)
-			}
-		} else {
-			if !authOption.AuthString.IsNull() {
+		if authOption.Plugin.IsNull() {
+			if authOption.RandomPassword.ValueBool() {
+				sql += ` IDENTIFIED BY RANDOM PASSWORD`
+			} else if !authOption.AuthString.IsNull() {
 				sql += ` IDENTIFIED BY ?`
 				args = append(args, authOption.AuthString.ValueString())
-			} else if authOption.RandomPassword.ValueBool() {
-				sql += ` IDENTIFIED BY RANDOM PASSWORD`
+			} else {
+				resp.Diagnostics.AddWarning("Could not add IDENTIFIED clause without plugin", "")
+			}
+		} else {
+			plugin := authOption.Plugin.ValueString()
+			if plugin == awsAuthenticationPlugin {
+				sql += fmt.Sprintf(` IDENTIFIED WITH %s AS 'RDS'`, plugin)
+			} else {
+				sql += fmt.Sprintf(` IDENTIFIED WITH %s`, plugin)
+				if authOption.RandomPassword.ValueBool() {
+					sql += ` BY RANDOM PASSWORD`
+				} else if !authOption.AuthString.IsNull() {
+					sql += ` BY ?`
+					args = append(args, authOption.AuthString.ValueString())
+				}
 			}
 		}
 	}
