@@ -13,7 +13,7 @@ require (
 	github.com/hashicorp/terraform-plugin-testing v1.2.0
 	github.com/pingcap/tidb/parser v0.0.0-20230419104120-29116c0256c5
 	github.com/r3labs/diff/v3 v3.0.1
-	golang.org/x/net v0.9.0
+	golang.org/x/net v0.10.0
 )
 
 require (
@@ -74,7 +74,7 @@ require (
 	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/exp v0.0.0-20220428152302-39d4317da171 // indirect
 	golang.org/x/mod v0.8.0 // indirect
-	golang.org/x/sys v0.7.0 // indirect
+	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f // indirect
