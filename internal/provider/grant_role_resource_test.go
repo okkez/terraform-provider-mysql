@@ -126,6 +126,5 @@ resource "mysql_grant_role" "test" {
 		t.Fatal(err)
 		t.Fail()
 	}
-	t.Log(config)
 	return config
 }
