@@ -15,5 +15,5 @@ func Render(source string, data any) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(w.Bytes()), nil
+	return w.String(), nil
 }
