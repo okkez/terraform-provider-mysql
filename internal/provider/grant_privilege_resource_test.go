@@ -555,6 +555,27 @@ func TestAccGrantPrivilegeResource_StaticPrivileges(t *testing.T) {
 	})
 }
 
+func TestAccGrantPrivilegeResource_ImportNonExistentRemoteObject(t *testing.T) {
+	database := fmt.Sprintf("test_database_%04d", rand.Intn(1000))
+	user := NewRandomUser("test-user", "%")
+	t.Logf("database: %s user: %s", database, user.GetID())
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create and Read testing
+			{
+				ResourceName:      "mysql_grant_privilege.test",
+				Config:            testAccGrantPrivilegeResource_Config(t, database, user.GetName(), []string{"SELECT"}, []string{}),
+				ImportState:       true,
+				ImportStateId:     fmt.Sprintf("%s@*@non-existent-user@%%", database),
+				ImportStateVerify: false,
+				ExpectError:       regexp.MustCompile("Failed showing grants"),
+			},
+		},
+	})
+}
+
 func testAccGrantPrivilegeResource_Config(t *testing.T, database, user string, privileges, columns []string) string {
 	source := `
 resource "mysql_database" "test" {
