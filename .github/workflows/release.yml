@@ -18,3 +18,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: ./.github/actions/release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
