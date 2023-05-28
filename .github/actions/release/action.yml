@@ -1,8 +1,14 @@
 name: Release
 
 inputs:
-  token:
+  GITHUB_TOKEN:
     description: GitHub token
+    required: true
+  GPG_PRIVATE_KEY:
+    description: GPG private key
+    required: true
+  PASSPHRASE:
+    description: GPG passphrase
     required: true
 
 runs:
@@ -20,13 +26,13 @@ runs:
       uses: crazy-max/ghaction-import-gpg@72b6676b71ab476b77e676928516f6982eef7a41 # v5.3.0
       id: import_gpg
       with:
-        gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-        passphrase: ${{ secrets.PASSPHRASE }}
+        gpg_private_key: ${{ inputs.GPG_PRIVATE_KEY }}
+        passphrase: ${{ inputs.PASSPHRASE }}
     - name: Run GoReleaser
       uses: goreleaser/goreleaser-action@f82d6c1c344bcacabba2c841718984797f664a6b # v4.2.0
       with:
         args: release --clean
       env:
         # GitHub sets the GITHUB_TOKEN secret automatically.
-        GITHUB_TOKEN: ${{ inputs.token }}
+        GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
         GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
