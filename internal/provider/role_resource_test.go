@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -42,6 +43,24 @@ func TestAccRoleResource(t *testing.T) {
 				),
 			},
 			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
+func TestAccRoleResource_ImportNonExistentRemoteObject(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// ImportState testing
+			{
+				ResourceName:      "mysql_role.test",
+				ImportState:       true,
+				ImportStateId:     "non-existent-role@%",
+				ImportStateVerify: false,
+				Config:            testAccRoleResource_Config("non-existent-role"),
+				ExpectError:       regexp.MustCompile("Cannot import non-existent remote object"),
+			},
 		},
 	})
 }

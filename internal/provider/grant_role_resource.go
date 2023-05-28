@@ -147,6 +147,15 @@ func (r *GrantRoleResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 
+	var args []interface{}
+	args = append(args, userOrRole.Name.ValueString())
+	args = append(args, userOrRole.Host.ValueString())
+
+	if !utils.UserExists(ctx, db, userOrRole.Name.ValueString(), userOrRole.Host.ValueString()) {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
 	sql := `
 SELECT
   FROM_USER
@@ -158,9 +167,6 @@ WHERE
   TO_USER = ? 
   AND TO_HOST = ?
 `
-	var args []interface{}
-	args = append(args, userOrRole.Name.ValueString())
-	args = append(args, userOrRole.Host.ValueString())
 	tflog.Info(ctx, sql, map[string]any{"args": args})
 
 	rows, err := db.QueryContext(ctx, sql, args...)

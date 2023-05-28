@@ -139,7 +139,8 @@ func (r *databaseResource) Read(ctx context.Context, req resource.ReadRequest, r
 	sql := "SELECT DEFAULT_CHARACTER_SET_NAME, DEFAULT_COLLATION_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?"
 	err = db.QueryRowContext(ctx, sql, data.Id.ValueString()).Scan(&characterSet, &collation)
 	if err != nil {
-		resp.Diagnostics.AddError("Failed executing query", err.Error())
+		tflog.Error(ctx, err.Error(), map[string]any{"sql": sql, "args": []interface{}{data.Id.ValueString()}})
+		resp.State.RemoveResource(ctx)
 		return
 	}
 

@@ -123,6 +123,11 @@ func (r *DefaultRolesResource) Read(ctx context.Context, req resource.ReadReques
 
 	user := data.User.ValueString()
 	host := data.Host.ValueString()
+	if !utils.UserExists(ctx, db, user, host) {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
 	var args []interface{}
 	args = append(args, user)
 	args = append(args, host)
