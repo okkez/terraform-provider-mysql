@@ -40,5 +40,5 @@
 	vPrefix = true
 	releaseBranch = main
 	versionFile = -
-    release = false
-    changelog = false
+    changelog = true
+    release = true
