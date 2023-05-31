@@ -25,7 +25,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
-	helper "github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 
 	"golang.org/x/net/proxy"
 )
@@ -305,22 +305,22 @@ func connectToMySQLInternal(ctx context.Context, conf *MySQLConfiguration) (*One
 	// when Terraform thinks it's available and when it is actually available.
 	// This is particularly acute when provisioning a server and then immediately
 	// trying to provision a database on it.
-	retryError := helper.RetryContext(ctx, conf.ConnectRetryTimeoutSec, func() *helper.RetryError {
+	retryError := retry.RetryContext(ctx, conf.ConnectRetryTimeoutSec, func() *retry.RetryError {
 		db, err = sql.Open(driverName, dsn)
 		if err != nil {
 			if mysqlErrorNumber(err) != 0 || ctx.Err() != nil {
-				return helper.NonRetryableError(err)
+				return retry.NonRetryableError(err)
 			}
-			return helper.RetryableError(err)
+			return retry.RetryableError(err)
 		}
 
 		err = db.PingContext(ctx)
 		if err != nil {
 			if mysqlErrorNumber(err) != 0 || ctx.Err() != nil {
-				return helper.NonRetryableError(err)
+				return retry.NonRetryableError(err)
 			}
 
-			return helper.RetryableError(err)
+			return retry.RetryableError(err)
 		}
 
 		return nil
