@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -83,6 +84,28 @@ func TestAccGrantRoleResource(t *testing.T) {
 	})
 }
 
+func TestAccGrantRoleResource_ImportNonExistentRemoteObject(t *testing.T) {
+	role0 := NewRandomRole("test-role0", "%")
+	role1 := NewRandomRole("test-role1", "%")
+	roles := []RoleModel{role0, role1}
+	t.Logf("role1: %s, role2: %s", role0.GetName(), role1.GetName())
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// ImportState testing
+			{
+				ResourceName:      "mysql_grant_role.test",
+				ImportState:       true,
+				ImportStateId:     "non-existent-user@%",
+				ImportStateVerify: false,
+				Config:            testAccGrantRoleResource_ConfigWithNonExistentUser(t, "non-existent-user", roles, []string{"role0"}),
+				ExpectError:       regexp.MustCompile("Cannot import non-existent remote object"),
+			},
+		},
+	})
+}
+
 func testAccGrantRoleResource_Config(t *testing.T, user string, roles []RoleModel, grantedRoles []string, withHost bool) string {
 	source := `
 resource "mysql_user" "test" {
@@ -120,6 +143,41 @@ resource "mysql_grant_role" "test" {
 		Roles:        roles,
 		GrantedRoles: grantedRoles,
 		WithHost:     withHost,
+	}
+	config, err := utils.Render(source, data)
+	if err != nil {
+		t.Fatal(err)
+		t.Fail()
+	}
+	return config
+}
+
+func testAccGrantRoleResource_ConfigWithNonExistentUser(t *testing.T, user string, roles []RoleModel, grantedRoles []string) string {
+	source := `
+{{- range $i, $role := .Roles }}
+resource "mysql_role" "role{{ $i }}" {
+  name = "{{ $role.GetName }}"
+}
+{{- end }}
+resource "mysql_grant_role" "test" {
+  to {
+    name = "non-existent-user"
+  }
+  {{- range $1, $role := .GrantedRoles }}
+  role {
+    name = mysql_role.{{ $role }}.name
+  }
+  {{- end }}
+}
+`
+	data := struct {
+		User         string
+		Roles        []RoleModel
+		GrantedRoles []string
+	}{
+		User:         user,
+		Roles:        roles,
+		GrantedRoles: grantedRoles,
 	}
 	config, err := utils.Render(source, data)
 	if err != nil {

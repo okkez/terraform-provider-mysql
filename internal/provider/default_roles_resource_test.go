@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -63,6 +64,24 @@ func TestAccDefaultRoleResource(t *testing.T) {
 	})
 }
 
+func TestAccDefaultRoleResource_ImportNonExistentRemoteObject(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// ImportState testing
+			{
+				ResourceName:      "mysql_default_roles.test",
+				ImportState:       true,
+				ImportStateId:     "non-existent-user@%",
+				ImportStateVerify: false,
+				Config:            testAccDefaultRoleResource_ConfigWithoutDependencies(t, "non-existent-user"),
+				ExpectError:       regexp.MustCompile("Cannot import non-existent remote object"),
+			},
+		},
+	})
+}
+
 func testAccDefaultRoleResource_Config(t *testing.T, user, role1, role2 string, defaultRoles []string) string {
 	source := `
 resource "mysql_user" "test" {
@@ -105,6 +124,28 @@ resource "mysql_default_roles" "test" {
 		Role1:        role1,
 		Role2:        role2,
 		DefaultRoles: defaultRoles,
+	}
+	config, err := utils.Render(source, data)
+	if err != nil {
+		t.Fatal(err)
+		t.Fail()
+	}
+	return config
+}
+
+func testAccDefaultRoleResource_ConfigWithoutDependencies(t *testing.T, user string) string {
+	source := `
+resource "mysql_default_roles" "test" {
+  user = "{{ .User }}"
+  default_role {
+    name = "role1"
+  }
+}
+`
+	data := struct {
+		User string
+	}{
+		User: user,
 	}
 	config, err := utils.Render(source, data)
 	if err != nil {

@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -22,6 +23,10 @@ func TestAccDatabaseDataSource(t *testing.T) {
 					resource.TestCheckResourceAttr("data.mysql_database.test", "default_character_set", "utf8mb4"),
 					resource.TestCheckResourceAttr("data.mysql_database.test", "default_collation", "utf8mb4_0900_ai_ci"),
 				),
+			},
+			{
+				Config:      testAccDatabaseDataSource_Config("non-existent-database"),
+				ExpectError: regexp.MustCompile("Error: Failed querying database"),
 			},
 		},
 	})

@@ -228,7 +228,10 @@ func (r *GrantPrivilegeResource) Read(ctx context.Context, req resource.ReadRequ
 		resp.Diagnostics.AddError(
 			fmt.Sprintf("Failed showing grants (%s@%s)", userOrRole.Name.ValueString(), userOrRole.Host.ValueString()),
 			err.Error())
+		resp.State.RemoveResource(ctx)
+		return
 	}
+	defer rows.Close()
 
 	privileges := []attr.Value{}
 	for rows.Next() {

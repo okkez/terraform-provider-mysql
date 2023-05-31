@@ -32,6 +32,15 @@ func TestAccTablesDataSource(t *testing.T) {
 					resource.TestCheckResourceAttr("data.mysql_tables.test", "tables.#", testAccTablesDataSource_tableCount(t, database, "time%")),
 				),
 			},
+			{
+				Config: testAccTablesDataSource_configWithPattern(database, "non-existent-pattern"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("data.mysql_tables.test", "id", "mysql:non-existent-pattern"),
+					resource.TestCheckResourceAttr("data.mysql_tables.test", "database", database),
+					resource.TestCheckResourceAttr("data.mysql_tables.test", "pattern", "non-existent-pattern"),
+					resource.TestCheckResourceAttr("data.mysql_tables.test", "tables.#", "0"),
+				),
+			},
 		},
 	})
 }

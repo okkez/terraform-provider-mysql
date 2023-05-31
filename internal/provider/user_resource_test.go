@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -156,6 +157,24 @@ func TestAccUserResource_Lock(t *testing.T) {
 				),
 			},
 			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
+func TestAccUserResource_ImportNonExistentRemoteObject(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// ImportState testing
+			{
+				ResourceName:      "mysql_user.test",
+				ImportState:       true,
+				ImportStateId:     "non-existent-user@%",
+				ImportStateVerify: false,
+				Config:            testAccUserResource_Config(t, "non-existent-user", "%"),
+				ExpectError:       regexp.MustCompile("Cannot import non-existent remote object"),
+			},
 		},
 	})
 }

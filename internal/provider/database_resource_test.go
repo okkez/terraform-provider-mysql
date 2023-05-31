@@ -3,6 +3,7 @@ package provider
 import (
 	"fmt"
 	"math/rand"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -18,7 +19,7 @@ func TestAccDatabaseResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccDatabaseResourceConfig(name),
+				Config: testAccDatabaseResource_Config(name),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_database.test", "id", name),
 					resource.TestCheckResourceAttr("mysql_database.test", "name", name),
@@ -34,7 +35,7 @@ func TestAccDatabaseResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccDatabaseResourceConfig_full(name, "latin1", "latin1_bin"),
+				Config: testAccDatabaseResource_ConfigFull(name, "latin1", "latin1_bin"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_database.test", "name", name),
 					resource.TestCheckResourceAttr("mysql_database.test", "default_character_set", "latin1"),
@@ -46,7 +47,25 @@ func TestAccDatabaseResource(t *testing.T) {
 	})
 }
 
-func testAccDatabaseResourceConfig(name string) string {
+func TestAccDatabaseResource_ImportNonExistentRemoteObject(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// ImportState testing
+			{
+				ResourceName:      "mysql_database.test",
+				ImportState:       true,
+				ImportStateId:     "non-existent-database",
+				ImportStateVerify: false,
+				Config:            testAccDatabaseResource_Config("non-existent-database"),
+				ExpectError:       regexp.MustCompile("Cannot import non-existent remote object"),
+			},
+		},
+	})
+}
+
+func testAccDatabaseResource_Config(name string) string {
 	return fmt.Sprintf(`
 resource "mysql_database" "test" {
   name = %q
@@ -54,7 +73,7 @@ resource "mysql_database" "test" {
 `, name)
 }
 
-func testAccDatabaseResourceConfig_full(name, charset, collation string) string {
+func testAccDatabaseResource_ConfigFull(name, charset, collation string) string {
 	return fmt.Sprintf(`
 resource "mysql_database" "test" {
   name = %q
