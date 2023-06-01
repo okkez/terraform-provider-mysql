@@ -1,3 +1,7 @@
+## [v0.3.5](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.4...v0.3.5) - 2023-05-31
+### Other changes
+- doc(user_resource): fix document by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/18
+
 ## [v0.3.4](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.3...v0.3.4) - 2023-05-31
 ### Bug fixes
 - fix: use "github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry" by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/17
