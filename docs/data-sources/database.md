@@ -30,5 +30,3 @@ data "mysql_database" "mysql" {
 - `default_character_set` (String) The default character set.
 - `default_collation` (String) The default collation.
 - `id` (String) The ID of this resource.
-
-
