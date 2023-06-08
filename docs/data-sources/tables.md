@@ -34,5 +34,3 @@ data "mysql_tables" "mysql" {
 
 - `id` (String) The ID of this resource.
 - `tables` (Set of String) Table names.
-
-
