@@ -1,3 +1,26 @@
+## [v0.3.9](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.8...v0.3.9) - 2024-03-24
+### Dependencies
+- chore(deps): bump hashicorp/setup-terraform from 2.0.3 to 3.0.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/62
+- chore(deps): bump github.com/hashicorp/terraform-plugin-go from 0.19.0 to 0.19.1 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/66
+- chore(deps): bump golang.org/x/net from 0.17.0 to 0.18.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/65
+- chore(deps): bump github.com/hashicorp/terraform-plugin-sdk/v2 from 2.29.0 to 2.30.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/64
+- chore(deps): bump github.com/hashicorp/terraform-plugin-framework from 1.4.1 to 1.4.2 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/61
+- chore(deps): bump golang.org/x/net from 0.18.0 to 0.19.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/67
+- chore(deps): bump actions/setup-go from 4.1.0 to 5.0.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/69
+- chore(deps): bump github.com/hashicorp/terraform-plugin-testing from 1.5.1 to 1.6.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/68
+- chore(deps): bump github.com/hashicorp/terraform-plugin-go from 0.19.1 to 0.20.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/70
+- chore(deps): bump github.com/hashicorp/terraform-plugin-sdk/v2 from 2.30.0 to 2.31.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/71
+- chore(deps): bump golang.org/x/net from 0.19.0 to 0.20.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/72
+- chore(deps): bump github.com/hashicorp/terraform-plugin-framework from 1.4.2 to 1.5.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/73
+- chore(deps): bump github.com/hashicorp/terraform-plugin-docs from 0.16.0 to 0.17.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/74
+- chore(deps): bump golang.org/x/net from 0.20.0 to 0.21.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/78
+- chore(deps): bump github.com/hashicorp/terraform-plugin-docs from 0.17.0 to 0.18.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/75
+- chore(deps): bump golangci/golangci-lint-action from 3.7.0 to 4.0.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/79
+- chore(deps): bump github.com/hashicorp/terraform-plugin-framework from 1.5.0 to 1.7.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/86
+- chore(deps): bump github.com/hashicorp/terraform-plugin-testing from 1.6.0 to 1.7.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/83
+### Other changes
+- Support terraform 1.7.* by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/87
+
 ## [v0.3.8](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.7...v0.3.8) - 2023-10-18
 ### Dependencies
 - chore(deps): bump github.com/hashicorp/terraform-plugin-framework from 1.3.2 to 1.3.3 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/38
