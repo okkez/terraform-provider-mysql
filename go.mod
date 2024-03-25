@@ -16,7 +16,7 @@ require (
 	github.com/hashicorp/terraform-plugin-testing v1.7.0
 	github.com/pingcap/tidb/parser v0.0.0-20231010133155-38cb4f3312be
 	github.com/r3labs/diff/v3 v3.0.1
-	golang.org/x/net v0.21.0
+	golang.org/x/net v0.22.0
 )
 
 require (
