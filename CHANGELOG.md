@@ -1,3 +1,7 @@
+## [v0.3.10](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.9...v0.3.10) - 2024-03-26
+### Dependencies
+- chore(deps): bump golang.org/x/net from 0.21.0 to 0.22.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/89
+
 ## [v0.3.9](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.8...v0.3.9) - 2024-03-24
 ### Dependencies
 - chore(deps): bump hashicorp/setup-terraform from 2.0.3 to 3.0.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/62
