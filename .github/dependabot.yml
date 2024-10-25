@@ -10,3 +10,8 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    groups:
+      terraform-plugins:
+        applies-to: version-updates
+        patterns:
+          - "terraform-plugin-*"
