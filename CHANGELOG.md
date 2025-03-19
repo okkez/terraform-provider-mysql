@@ -1,3 +1,10 @@
+## [v0.3.12](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.11...v0.3.12) - 2025-03-19
+### Dependencies
+- chore(deps): bump actions/setup-go from 5.2.0 to 5.3.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/150
+### Other changes
+- chore: install terraform before go generate by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/166
+- chore(actions): allow workflow_dispatch by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/168
+
 ## [v0.3.11](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.10...v0.3.11) - 2025-01-09
 ### Dependencies
 - chore(deps): bump actions/setup-go from 5.0.1 to 5.0.2 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/120
