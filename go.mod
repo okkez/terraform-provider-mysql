@@ -1,6 +1,6 @@
 module github.com/okkez/terraform-provider-mysql
 
-go 1.22.0
+go 1.24.1
 
 toolchain go1.23.2
 
