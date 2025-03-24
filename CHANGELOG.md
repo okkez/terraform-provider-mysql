@@ -1,3 +1,21 @@
+## [v0.3.14](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.13...v0.3.14) - 2025-03-24
+### Dependencies
+- chore(deps): bump actions/setup-go from 5.3.0 to 5.4.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/172
+- chore(deps): bump github.com/hashicorp/terraform-plugin-sdk/v2 from 2.35.0 to 2.36.1 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/159
+- chore(deps): bump golang.org/x/net from 0.34.0 to 0.37.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/162
+- chore(deps): bump github.com/hashicorp/terraform-plugin-docs from 0.19.4 to 0.21.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/160
+- chore(deps): bump github.com/hashicorp/terraform-plugin-testing from 1.10.0 to 1.12.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/165
+- chore(deps): bump github.com/hashicorp/terraform-plugin-framework-validators from 0.16.0 to 0.17.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/175
+- chore(deps): bump github.com/hashicorp/terraform-plugin-framework from 1.13.0 to 1.14.1 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/177
+- chore(deps): bump github.com/go-sql-driver/mysql from 1.8.1 to 1.9.1 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/176
+- chore(deps): bump actions/setup-go from 4.0.1 to 5.4.0 in /.github/actions/release by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/179
+- chore(deps): bump actions/checkout from 3.5.2 to 4.2.2 in /.github/actions/release by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/180
+- chore(deps): bump crazy-max/ghaction-import-gpg from 5.3.0 to 6.2.0 in /.github/actions/release by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/182
+- chore(deps): bump goreleaser/goreleaser-action from 4.2.0 to 6.2.1 in /.github/actions/release by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/181
+### Other changes
+- chore(deps): update go version to 1.24.1 by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/174
+- chore(dependabot): pin actions by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/178
+
 ## [v0.3.13](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.12...v0.3.13) - 2025-03-19
 ### Dependencies
 - chore(deps): bump golangci/golangci-lint-action from 6.1.1 to 6.5.2 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/164
