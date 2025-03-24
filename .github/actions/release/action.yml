@@ -10,6 +10,9 @@ inputs:
   PASSPHRASE:
     description: GPG passphrase
     required: true
+  TAG_NAME:
+    description: Git tag name
+    required: true
 
 runs:
   using: "composite"
@@ -36,3 +39,5 @@ runs:
         # GitHub sets the GITHUB_TOKEN secret automatically.
         GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
         GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+    - name: Publish release
+      run: gh release edit "${inputs.TAG_NAME}" --draft=false
