@@ -16,4 +16,5 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         PASSPHRASE: ${{ secrets.PASSPHRASE }}
+        TAG_NAME: ${{ steps.tagpr.outputs.tag }}
       if: "steps.tagpr.outputs.tag != ''"
