@@ -191,7 +191,7 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 		if err != nil {
 			resp.Diagnostics.AddError("Failed creating user", err.Error())
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var _host, _user, generatedPassword, _authFactor string
 			if err = rows.Scan(&_host, &_user, &generatedPassword, &_authFactor); err != nil {
@@ -350,7 +350,7 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	if err != nil {
 		resp.Diagnostics.AddError("Failed creating user", err.Error())
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var _host, _user, generatedPassword, _authFactor string
 		if err = rows.Scan(&_host, &_user, &generatedPassword, &_authFactor); err != nil {

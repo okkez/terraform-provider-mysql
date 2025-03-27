@@ -176,7 +176,7 @@ WHERE
 			err.Error())
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var currentRoles []attr.Value
 	for rows.Next() {

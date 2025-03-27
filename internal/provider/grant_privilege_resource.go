@@ -231,7 +231,7 @@ func (r *GrantPrivilegeResource) Read(ctx context.Context, req resource.ReadRequ
 		resp.State.RemoveResource(ctx)
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	privileges := []attr.Value{}
 	for rows.Next() {
@@ -515,7 +515,7 @@ func grantPrivileges(ctx context.Context, db *sql.DB, privileges []PrivilegeType
 	for _, privilege := range privileges {
 		priv, err := buildPrivilege(ctx, db, privilege)
 		if err != nil {
-			return fmt.Errorf("Failed building privilege: %w", err)
+			return fmt.Errorf("failed building privilege: %w", err)
 		}
 		privilegesWithColumns = append(privilegesWithColumns, priv)
 	}
@@ -561,7 +561,7 @@ func revokePrivileges(ctx context.Context, db *sql.DB, privileges []PrivilegeTyp
 	for _, privilege := range privileges {
 		priv, err := buildPrivilege(ctx, db, privilege)
 		if err != nil {
-			return fmt.Errorf("Failed to building privileges: %w", err)
+			return fmt.Errorf("failed to building privileges: %w", err)
 		}
 		privilegesWithColumns = append(privilegesWithColumns, priv)
 	}

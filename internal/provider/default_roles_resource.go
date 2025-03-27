@@ -147,7 +147,7 @@ WHERE
 		resp.Diagnostics.AddError(fmt.Sprintf("Failed querying default roles for user (%s@%s)", user, host), err.Error())
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	defaultRoles := []attr.Value{}
 	for rows.Next() {
