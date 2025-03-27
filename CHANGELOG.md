@@ -1,3 +1,9 @@
+## [v0.3.15](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.14...v0.3.15) - 2025-03-27
+### Dependencies
+- chore(deps): bump golangci/golangci-lint-action from 6.5.2 to 7.0.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/185
+### Other changes
+- build: organize release timing by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/183
+
 ## [v0.3.14](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.13...v0.3.14) - 2025-03-24
 ### Dependencies
 - chore(deps): bump actions/setup-go from 5.3.0 to 5.4.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/172
