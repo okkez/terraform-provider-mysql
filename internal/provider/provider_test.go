@@ -48,9 +48,9 @@ func testMySQLConfig() *MySQLConfiguration {
 		TLSConfig: "false",
 	}
 	return &MySQLConfiguration{
-		Config:                 &conf,
-		MaxConnLifetime:        time.Duration(8*60*60) * time.Second,
-		MaxOpenConns:           5,
-		ConnectRetryTimeoutSec: time.Duration(300) * time.Second,
+		Config:              &conf,
+		MaxConnLifetime:     time.Duration(8*60*60) * time.Second,
+		MaxOpenConns:        5,
+		ConnectRetryTimeout: time.Duration(300) * time.Second,
 	}
 }

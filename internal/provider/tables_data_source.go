@@ -88,7 +88,7 @@ func (d *TablesDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 		resp.Diagnostics.AddError("Failed querying for tables", err.Error())
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var state TablesDataSourceModel
 	for rows.Next() {

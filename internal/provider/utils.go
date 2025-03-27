@@ -34,7 +34,7 @@ func quoteIdentifier(ctx context.Context, db *sql.DB, identifier string) (string
 	if err != nil {
 		return "", err
 	}
-	defer stmt.Close()
+	defer func() { _ = stmt.Close() }()
 	if err := stmt.QueryRowContext(ctx, identifier).Scan(&quotedIdentifier); err != nil {
 		return "", err
 	}

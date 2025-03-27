@@ -55,10 +55,10 @@ type OneConnection struct {
 }
 
 type MySQLConfiguration struct {
-	Config                 *mysql.Config
-	MaxConnLifetime        time.Duration
-	MaxOpenConns           int
-	ConnectRetryTimeoutSec time.Duration
+	Config              *mysql.Config
+	MaxConnLifetime     time.Duration
+	MaxOpenConns        int
+	ConnectRetryTimeout time.Duration
 }
 
 var (
@@ -218,10 +218,10 @@ func (p *mysqlProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	})
 
 	mysqlConf := &MySQLConfiguration{
-		Config:                 &conf,
-		MaxConnLifetime:        time.Duration(8*60*60) * time.Second,
-		MaxOpenConns:           5,
-		ConnectRetryTimeoutSec: time.Duration(300) * time.Second,
+		Config:              &conf,
+		MaxConnLifetime:     time.Duration(8*60*60) * time.Second,
+		MaxOpenConns:        5,
+		ConnectRetryTimeout: time.Duration(300) * time.Second,
 	}
 
 	resp.DataSourceData = mysqlConf
@@ -305,7 +305,7 @@ func connectToMySQLInternal(ctx context.Context, conf *MySQLConfiguration) (*One
 	// when Terraform thinks it's available and when it is actually available.
 	// This is particularly acute when provisioning a server and then immediately
 	// trying to provision a database on it.
-	retryError := retry.RetryContext(ctx, conf.ConnectRetryTimeoutSec, func() *retry.RetryError {
+	retryError := retry.RetryContext(ctx, conf.ConnectRetryTimeout, func() *retry.RetryError {
 		db, err = sql.Open(driverName, dsn)
 		if err != nil {
 			if mysqlErrorNumber(err) != 0 || ctx.Err() != nil {
@@ -351,7 +351,7 @@ func afterConnectVersion(ctx context.Context, db *sql.DB) (*version.Version, err
 	tflog.Info(ctx, "AAA Running after connect")
 	currentVersion, err := serverVersion(db)
 	if err != nil {
-		return nil, fmt.Errorf("Failed getting server version: %v", err)
+		return nil, fmt.Errorf("failed getting server version: %v", err)
 	}
 
 	versionMinInclusive, _ := version.NewVersion("5.7.5")
