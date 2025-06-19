@@ -1,3 +1,7 @@
+## [v0.3.18](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.17...v0.3.18) - 2025-06-19
+### Other changes
+- ci: remove failed step by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/212
+
 ## [v0.3.17](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.16...v0.3.17) - 2025-06-19
 ### Other changes
 - ci: fix syntax error by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/210
