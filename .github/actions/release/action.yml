@@ -41,4 +41,4 @@ runs:
         GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
     - name: Publish release
       shell: bash
-      run: gh release edit "${inputs.TAG_NAME}" --draft=false
+      run: gh release edit "${{ inputs.TAG_NAME }}" --draft=false
