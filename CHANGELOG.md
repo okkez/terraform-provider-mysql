@@ -1,3 +1,7 @@
+## [v0.3.17](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.16...v0.3.17) - 2025-06-19
+### Other changes
+- ci: fix syntax error by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/210
+
 ## [v0.3.16](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.15...v0.3.16) - 2025-06-19
 ### Other changes
 - ci: add missing parameter shell by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/208
