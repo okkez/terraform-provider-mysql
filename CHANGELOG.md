@@ -1,3 +1,7 @@
+## [v0.3.16](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.15...v0.3.16) - 2025-06-19
+### Other changes
+- ci: add missing parameter shell by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/208
+
 ## [v0.3.15](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.14...v0.3.15) - 2025-06-17
 ### Dependencies
 - chore(deps): bump golangci/golangci-lint-action from 6.5.2 to 7.0.0 by @dependabot in https://github.com/okkez/terraform-provider-mysql/pull/185
