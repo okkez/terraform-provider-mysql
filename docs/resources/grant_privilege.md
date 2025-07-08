@@ -27,10 +27,10 @@ resource "mysql_grant_privilege" "writer-role" {
   privilege {
     priv_type = "INSERT"
   }
-  priv_type {
+  privilege {
     priv_type = "UPDATE"
   }
-  priv_type {
+  privilege {
     priv_type = "DELETE"
   }
   on {
