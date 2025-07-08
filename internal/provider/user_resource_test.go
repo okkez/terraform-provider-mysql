@@ -80,12 +80,12 @@ func TestAccUserResource_Plugin(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccUserResource_ConfigWithAuthPlugin(t, users[2].GetName(), users[2].GetHost(), "mysql_native_password"),
+				Config: testAccUserResource_ConfigWithAuthPlugin(t, users[2].GetName(), users[2].GetHost(), "sha256_password"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_user.test", "name", users[2].GetName()),
 					resource.TestCheckResourceAttr("mysql_user.test", "host", users[2].GetHost()),
 					resource.TestCheckResourceAttr("mysql_user.test", "id", users[2].GetID()),
-					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.plugin", "mysql_native_password"),
+					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.plugin", "sha256_password"),
 				),
 			},
 			// ImportState testing

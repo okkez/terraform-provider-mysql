@@ -1,8 +1,7 @@
-version: "3"
 services:
-  mysql8:
-    image: mysql:8
-    container_name: mysql
+  mysql80:
+    image: mysql:8.0
+    container_name: mysql8.0
     environment:
       MYSQL_ROOT_PASSWORD: password
     command: --plugin-load-add=mysql_no_login.so
@@ -11,8 +10,23 @@ services:
     ports:
       - "33306:3306"
     volumes:
-      - mysql-data:/var/lib/mysql
+      - mysql80-data:/var/lib/mysql
+
+  mysql84:
+    image: mysql:8.4
+    container_name: mysql8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+    command: --plugin-load-add=mysql_no_login.so
+    networks:
+      - default
+    ports:
+      - "43306:3306"
+    volumes:
+      - mysql84-data:/var/lib/mysql
 
 volumes:
-  mysql-data:
+  mysql80-data:
+    driver: local
+  mysql84-data:
     driver: local
