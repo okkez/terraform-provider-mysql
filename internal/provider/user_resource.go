@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-sql-driver/mysql"
+
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -259,10 +261,17 @@ WHERE
 			var defaultAuthenticationPlugin string
 			err := db.QueryRowContext(ctx, "SELECT @@default_authentication_plugin").Scan(&defaultAuthenticationPlugin)
 			if err != nil {
-				// For MySQL 8.4+ where default_authentication_plugin is removed
-				// Default authentication plugin is caching_sha2_password
-				defaultAuthenticationPlugin = "caching_sha2_password"
-				tflog.Info(ctx, fmt.Sprintf("Using hardcoded default plugin for MySQL 8.4+: %s", defaultAuthenticationPlugin))
+				// Check if error is specifically about the unknown variable (MySQL 8.4+)
+				if mysqlErr, ok := err.(*mysql.MySQLError); ok && mysqlErr.Number == 1193 {
+					// ER_UNKNOWN_SYSTEM_VARIABLE: For MySQL 8.4+ where default_authentication_plugin is removed
+					// Default authentication plugin is caching_sha2_password
+					defaultAuthenticationPlugin = "caching_sha2_password"
+					tflog.Info(ctx, fmt.Sprintf("Using hardcoded default plugin for MySQL 8.4+: %s", defaultAuthenticationPlugin))
+				} else {
+					// Other database errors should be surfaced
+					resp.Diagnostics.AddError("Failed to query default authentication plugin", err.Error())
+					return
+				}
 			} else {
 				tflog.Info(ctx, fmt.Sprintf("default_authentication_plugin=%s", defaultAuthenticationPlugin))
 			}
