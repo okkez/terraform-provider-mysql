@@ -569,10 +569,23 @@ func revokePrivileges(ctx context.Context, db *sql.DB, privileges []PrivilegeTyp
 	sql += strings.Join(privilegesWithColumns, ",")
 
 	if revokeGrantOption {
-		if len(privileges) > 0 {
-			sql += ` ,GRANT OPTION`
+		// MySQL 8.4 compatibility: Check if user actually has GRANT OPTION before trying to revoke it
+		hasGrantOption, err := checkGrantOption(ctx, db, privilegeLevel, userOrRole)
+		if err != nil {
+			return fmt.Errorf("failed to check GRANT OPTION status: %w", err)
+		}
+		if hasGrantOption {
+			if len(privileges) > 0 {
+				sql += ` ,GRANT OPTION`
+			} else {
+				sql += ` GRANT OPTION`
+			}
 		} else {
-			sql += ` GRANT OPTION`
+			tflog.Info(ctx, "User does not have GRANT OPTION, skipping REVOKE GRANT OPTION")
+			// Only execute REVOKE if there are privileges to revoke
+			if len(privileges) == 0 {
+				return nil // Nothing to revoke
+			}
 		}
 	}
 
@@ -601,6 +614,43 @@ func revokePrivileges(ctx context.Context, db *sql.DB, privileges []PrivilegeTyp
 	}
 
 	return nil
+}
+
+func checkGrantOption(ctx context.Context, db *sql.DB, privilegeLevel PrivilegeLevelModel, userOrRole UserModel) (bool, error) {
+	sql := "SHOW GRANTS FOR ?@?"
+	args := []interface{}{userOrRole.Name.ValueString(), userOrRole.Host.ValueString()}
+
+	rows, err := db.QueryContext(ctx, sql, args...)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	database := privilegeLevel.Database.ValueString()
+	table := privilegeLevel.Table.ValueString()
+	userName := userOrRole.Name.ValueString()
+	hostName := userOrRole.Host.ValueString()
+
+	for rows.Next() {
+		var grantStatement string
+		if err := rows.Scan(&grantStatement); err != nil {
+			return false, err
+		}
+
+		// Parse the grant statement using the existing parser
+		grantPrivilege, err := ParseGrantPrivilegeStatement(grantStatement)
+		if err != nil {
+			// If parsing fails, skip this statement (might be a non-privilege grant)
+			continue
+		}
+
+		// Check if this grant statement matches our database/table/user and has GRANT OPTION
+		if grantPrivilege.Match(database, table, userName, hostName) && grantPrivilege.GrantOption {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func convertPrivilegesToRaws(ctx context.Context, privileges []PrivilegeTypeModel) []PrivilegeTypeRaw {
