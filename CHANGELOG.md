@@ -1,3 +1,9 @@
+## [v0.4.0](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.17...v0.4.0) - 2025-07-08
+### Other changes
+- ci: remove failed step by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/212
+- docs: fix by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/215
+- fix: add MySQL 8.4 compatibility for REVOKE GRANT OPTION operations by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/216
+
 ## [v0.3.17](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.16...v0.3.17) - 2025-06-19
 ### Other changes
 - ci: fix syntax error by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/210
