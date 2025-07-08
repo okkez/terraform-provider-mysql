@@ -421,7 +421,6 @@ func TestAccGrantPrivilegeResource_DynamicPrivileges(t *testing.T) {
 		"RESOURCE_GROUP_USER",
 		"ROLE_ADMIN",
 		"SESSION_VARIABLES_ADMIN",
-		"SET_USER_ID",
 		"SHOW_ROUTINE",
 		// SKIP_QUERY_REWRITE is available if Query Rewrite Plugins are installed.
 		// "SKIP_QUERY_REWRITE",
