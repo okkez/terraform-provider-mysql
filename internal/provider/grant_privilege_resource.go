@@ -243,7 +243,7 @@ func (r *GrantPrivilegeResource) Read(ctx context.Context, req resource.ReadRequ
 		tflog.Info(ctx, fmt.Sprintf("\nGrant Statement: %s", grantStatement))
 		grantPrivilege, err := ParseGrantPrivilegeStatement(grantStatement)
 		if err != nil {
-			resp.Diagnostics.AddError("Failed parsing grant statement", err.Error())
+			resp.Diagnostics.AddError("Failed parsing grant statement", fmt.Sprintf("Statement: %s, Error: %s", grantStatement, err.Error()))
 			return
 		}
 		if !grantPrivilege.Match(privilegeLevel.Database.ValueString(), privilegeLevel.Table.ValueString(), userOrRole.Name.ValueString(), userOrRole.Host.ValueString()) {
@@ -622,6 +622,7 @@ func checkGrantOption(ctx context.Context, db *sql.DB, privilegeLevel PrivilegeL
 
 	rows, err := db.QueryContext(ctx, sql, args...)
 	if err != nil {
+		tflog.Error(ctx, "Failed to check GRANT OPTION status", map[string]any{"user": userOrRole.Name.ValueString(), "host": userOrRole.Host.ValueString(), "error": err.Error()})
 		return false, err
 	}
 	defer func() { _ = rows.Close() }()
@@ -634,13 +635,15 @@ func checkGrantOption(ctx context.Context, db *sql.DB, privilegeLevel PrivilegeL
 	for rows.Next() {
 		var grantStatement string
 		if err := rows.Scan(&grantStatement); err != nil {
+			tflog.Error(ctx, "Failed to scan grant statement", map[string]any{"user": userOrRole.Name.ValueString(), "host": userOrRole.Host.ValueString(), "error": err.Error()})
 			return false, err
 		}
 
 		// Parse the grant statement using the existing parser
 		grantPrivilege, err := ParseGrantPrivilegeStatement(grantStatement)
 		if err != nil {
-			// If parsing fails, skip this statement (might be a non-privilege grant)
+			// Log parsing errors for debugging, but continue with other statements
+			tflog.Warn(ctx, "Failed to parse grant statement", map[string]any{"statement": grantStatement, "error": err.Error()})
 			continue
 		}
 
