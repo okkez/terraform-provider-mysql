@@ -41,6 +41,8 @@ resource "mysql_global_variable" "table_definition_cache" {
 
 Import is supported using the following syntax:
 
+The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
+
 ```shell
 # Global variable can be imported by specifying the global variable name
 terraform import mysql_global_variable.table_definition_cache table_definition_cache
