@@ -1,3 +1,17 @@
+## [v0.4.0](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.17...v0.4.0) - 2025-08-13
+### Dependencies
+- chore(deps): bump github.com/hashicorp/terraform-plugin-docs from 0.21.0 to 0.22.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/214
+- chore(deps): bump golang.org/x/net from 0.41.0 to 0.42.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/217
+- chore(deps): bump github.com/hashicorp/terraform-plugin-framework from 1.15.0 to 1.15.1 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/218
+- chore(deps): bump actions/checkout from 4 to 5 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/221
+- chore(deps): bump actions/checkout from 4.2.2 to 5.0.0 in /.github/actions/release by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/222
+- chore(deps): bump github.com/r3labs/diff/v3 from 3.0.1 to 3.0.2 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/220
+- chore(deps): bump golang.org/x/net from 0.42.0 to 0.43.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/219
+### Other changes
+- ci: remove failed step by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/212
+- docs: fix by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/215
+- fix: add MySQL 8.4 compatibility for REVOKE GRANT OPTION operations by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/216
+
 ## [v0.3.17](https://github.com/okkez/terraform-provider-mysql/compare/v0.3.16...v0.3.17) - 2025-06-19
 ### Other changes
 - ci: fix syntax error by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/210
