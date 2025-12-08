@@ -6,7 +6,7 @@ require (
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/hashicorp/go-version v1.7.0
 	github.com/hashicorp/terraform-plugin-docs v0.24.0
-	github.com/hashicorp/terraform-plugin-framework v1.16.1
+	github.com/hashicorp/terraform-plugin-framework v1.17.0
 	github.com/hashicorp/terraform-plugin-framework-validators v0.19.0
 	github.com/hashicorp/terraform-plugin-go v0.29.0
 	github.com/hashicorp/terraform-plugin-log v0.10.0
