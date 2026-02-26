@@ -1,6 +1,6 @@
 module github.com/okkez/terraform-provider-mysql
 
-go 1.24.1
+go 1.25.0
 
 require (
 	github.com/go-sql-driver/mysql v1.9.3
@@ -14,7 +14,7 @@ require (
 	github.com/hashicorp/terraform-plugin-testing v1.14.0
 	github.com/pingcap/tidb/parser v0.0.0-20231010133155-38cb4f3312be
 	github.com/r3labs/diff/v3 v3.0.2
-	golang.org/x/net v0.50.0
+	golang.org/x/net v0.51.0
 )
 
 require (
