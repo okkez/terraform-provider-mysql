@@ -18,4 +18,4 @@ updates:
       terraform-plugins:
         applies-to: version-updates
         patterns:
-          - "terraform-plugin-*"
+          - "github.com/hashicorp/terraform-plugin-*"
