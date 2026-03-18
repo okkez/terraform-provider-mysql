@@ -1,3 +1,25 @@
+## [v0.4.2](https://github.com/okkez/terraform-provider-mysql/compare/v0.4.1...v0.4.2) - 2026-03-18
+### Dependencies
+- chore(deps): bump Songmu/tagpr from 1.9.0 to 1.17.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/271
+- chore(deps): bump actions/setup-go from 6.1.0 to 6.2.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/262
+- chore(deps): bump actions/setup-go from 6.1.0 to 6.2.0 in /.github/actions/release by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/263
+- chore(deps): bump actions/checkout from 6.0.1 to 6.0.2 in /.github/actions/release by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/266
+- chore(deps): bump golang.org/x/net from 0.47.0 to 0.50.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/270
+- chore(deps): bump actions/checkout from 6.0.0 to 6.0.2 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/265
+- chore(deps): bump github.com/hashicorp/terraform-plugin-sdk/v2 from 2.38.1 to 2.38.2 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/269
+- chore(deps): bump goreleaser/goreleaser-action from 6.4.0 to 7.0.0 in /.github/actions/release by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/273
+- chore(deps): bump github.com/hashicorp/terraform-plugin-go from 0.29.0 to 0.30.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/275
+- chore(deps): bump hashicorp/setup-terraform from 3.1.2 to 4.0.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/274
+- chore(deps): bump Songmu/tagpr from 1.17.0 to 1.17.1 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/276
+- chore(deps): bump actions/setup-go from 6.2.0 to 6.3.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/277
+- chore(deps): bump actions/setup-go from 6.2.0 to 6.3.0 in /.github/actions/release by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/279
+- chore(deps): bump crazy-max/ghaction-import-gpg from 6.3.0 to 7.0.0 in /.github/actions/release by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/282
+- chore(deps): bump golang.org/x/net from 0.50.0 to 0.51.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/278
+- chore(deps): bump the terraform-plugins group with 4 updates by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/288
+- chore(deps): bump golang.org/x/net from 0.51.0 to 0.52.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/289
+### Other changes
+- fix(dependabot): use full module path pattern for terraform-plugin group by @okkez in https://github.com/okkez/terraform-provider-mysql/pull/287
+
 ## [v0.4.1](https://github.com/okkez/terraform-provider-mysql/compare/v0.4.0...v0.4.1) - 2025-12-11
 ### Dependencies
 - chore(deps): bump goreleaser/goreleaser-action from 6.3.0 to 6.4.0 in /.github/actions/release by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/223
