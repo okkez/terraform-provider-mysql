@@ -1,3 +1,9 @@
+## [v0.4.3](https://github.com/okkez/terraform-provider-mysql/compare/v0.4.2...v0.4.3) - 2026-04-09
+### Dependencies
+- chore(deps): bump Songmu/tagpr from 1.17.1 to 1.18.1 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/293
+- chore(deps): bump actions/setup-go from 6.3.0 to 6.4.0 in /.github/actions/release by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/292
+- chore(deps): bump github.com/hashicorp/go-version from 1.8.0 to 1.9.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/291
+
 ## [v0.4.2](https://github.com/okkez/terraform-provider-mysql/compare/v0.4.1...v0.4.2) - 2026-03-18
 ### Dependencies
 - chore(deps): bump Songmu/tagpr from 1.9.0 to 1.17.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/271
