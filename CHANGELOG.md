@@ -1,3 +1,34 @@
+## [v0.4.3](https://github.com/okkez/terraform-provider-mysql/compare/v0.4.2...v0.4.3) - 2026-06-29
+
+### Dependencies
+- chore(deps): bump Songmu/tagpr from 1.17.1 to 1.18.1 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/293
+- chore(deps): bump actions/setup-go from 6.3.0 to 6.4.0 in /.github/actions/release by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/292
+- chore(deps): bump github.com/hashicorp/go-version from 1.8.0 to 1.9.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/291
+- chore(deps): bump actions/setup-go from 6.3.0 to 6.4.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/290
+- chore(deps): bump Songmu/tagpr from 1.18.1 to 1.18.2 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/296
+- chore(deps): bump golang.org/x/net from 0.52.0 to 0.53.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/295
+- chore(deps): bump goreleaser/goreleaser-action from 7.0.0 to 7.1.0 in /.github/actions/release by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/299
+- chore(deps): bump Songmu/tagpr from 1.18.2 to 1.18.3 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/297
+- chore(deps): bump the terraform-plugins group across 1 directory with 2 updates by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/300
+- chore(deps): bump github.com/go-sql-driver/mysql from 1.9.3 to 1.10.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/303
+- chore(deps): bump github.com/hashicorp/terraform-plugin-sdk/v2 from 2.40.0 to 2.40.1 in the terraform-plugins group by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/302
+- chore(deps): bump goreleaser/goreleaser-action from 7.1.0 to 7.2.1 in /.github/actions/release by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/301
+- chore(deps): bump Songmu/tagpr from 1.18.3 to 1.19.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/304
+- chore(deps): bump hashicorp/setup-terraform from 4.0.0 to 4.0.1 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/306
+- chore(deps): bump golang.org/x/net from 0.53.0 to 0.54.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/305
+- chore(deps): bump golangci/golangci-lint-action from 9.2.0 to 9.2.1 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/308
+- chore(deps): bump goreleaser/goreleaser-action from 7.2.1 to 7.2.2 in /.github/actions/release by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/307
+- chore(deps): bump actions/checkout from 6.0.2 to 6.0.3 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/311
+- chore(deps): bump actions/checkout from 6.0.2 to 6.0.3 in /.github/actions/release by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/312
+- chore(deps): bump Songmu/tagpr from 1.19.0 to 1.20.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/310
+- chore(deps): bump golang.org/x/net from 0.54.0 to 0.56.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/313
+- chore(deps): bump actions/checkout from 6.0.3 to 7.0.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/314
+- chore(deps): bump actions/checkout from 6.0.3 to 7.0.0 in /.github/actions/release by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/315
+- chore(deps): bump actions/setup-go from 6.4.0 to 6.5.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/316
+- chore(deps): bump actions/setup-go from 6.4.0 to 6.5.0 in /.github/actions/release by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/317
+- chore(deps): bump goreleaser/goreleaser-action from 7.2.2 to 7.2.3 in /.github/actions/release by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/319
+- chore(deps): bump golangci/golangci-lint-action from 9.2.1 to 9.3.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/318
+
 ## [v0.4.2](https://github.com/okkez/terraform-provider-mysql/compare/v0.4.1...v0.4.2) - 2026-03-18
 ### Dependencies
 - chore(deps): bump Songmu/tagpr from 1.9.0 to 1.17.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/271
