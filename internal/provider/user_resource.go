@@ -364,7 +364,8 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	tflog.Info(ctx, sql, map[string]any{"args": args})
 	rows, err := db.QueryContext(ctx, sql, args...)
 	if err != nil {
-		resp.Diagnostics.AddError("Failed creating user", err.Error())
+		resp.Diagnostics.AddError("Failed updating user", err.Error())
+		return
 	}
 	defer func() { _ = rows.Close() }()
 	for rows.Next() {
