@@ -28,6 +28,22 @@ resource "mysql_user" "test" {
   }
 }
 
+# rotate the password without downtime using MySQL dual password support
+# see https://dev.mysql.com/doc/refman/8.0/en/password-management.html#dual-passwords
+#
+# 1. change `auth_string` and apply with `retain_current_password = true`
+#    to keep the old password usable as the secondary password
+# 2. deploy the new password to your applications
+# 3. apply with `discard_old_password = true` to drop the old password
+resource "mysql_user" "rotating-user" {
+  name = "app-user"
+  host = "app.example.com"
+  auth_option {
+    auth_string             = "new-password"
+    retain_current_password = true
+  }
+}
+
 # use RDS IAM DB Auth
 # see https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.IAMDBAuth.html
 resource "mysql_user" "rds-user" {
@@ -61,8 +77,10 @@ resource "mysql_user" "rds-user" {
 Optional:
 
 - `auth_string` (String) Plain text password. Conflicts with `random_password`.
+- `discard_old_password` (Boolean) Discard the secondary password. Requires MySQL 8.0.14 or later. See MySQL Reference Manual [8.2.15 Password Management](https://dev.mysql.com/doc/refman/8.0/en/password-management.html#dual-passwords) for more details. This option is ignored when creating a user because a new user has no secondary password. Cannot be true at the same time as `retain_current_password`.
 - `plugin` (String) An authentication plugin name. See MySQL Reference Manual [6.4.1 Authentication Plugins](https://dev.mysql.com/doc/refman/8.0/en/authentication-plugins.html) for more details. Conflicts with `auth_string`, `random_password` if set `AWSAuthenticationPlugin`.
 - `random_password` (Boolean) Generate random password when create user. Display generated password after creating user. Conflicts with `auth_string`.
+- `retain_current_password` (Boolean) Keep the current password as the secondary password when changing the password. Requires MySQL 8.0.14 or later. See MySQL Reference Manual [8.2.15 Password Management](https://dev.mysql.com/doc/refman/8.0/en/password-management.html#dual-passwords) for more details. This option is ignored when creating a user because `CREATE USER` does not accept `RETAIN CURRENT PASSWORD`. Cannot be true at the same time as `discard_old_password`.
 
 ## Import
 

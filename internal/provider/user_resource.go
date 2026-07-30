@@ -2,10 +2,12 @@ package provider
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/hashicorp/go-version"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -24,14 +26,33 @@ import (
 
 // Ensure provider defined types fully satisfy framework interfaces.
 var (
-	_ resource.Resource                = &UserResource{}
-	_ resource.ResourceWithConfigure   = &UserResource{}
-	_ resource.ResourceWithImportState = &UserResource{}
+	_ resource.Resource                   = &UserResource{}
+	_ resource.ResourceWithConfigure      = &UserResource{}
+	_ resource.ResourceWithImportState    = &UserResource{}
+	_ resource.ResourceWithValidateConfig = &UserResource{}
 )
 
 const (
 	awsAuthenticationPlugin = "AWSAuthenticationPlugin"
 )
+
+// dualPasswordMinVersion is the minimum MySQL version that supports dual password.
+// The dual password support was added in MySQL 8.0.14, while this provider supports MySQL 8.0 or later.
+// See https://dev.mysql.com/doc/refman/8.0/en/password-management.html#dual-passwords for more details.
+var dualPasswordMinVersion = version.Must(version.NewVersion("8.0.14"))
+
+// checkDualPasswordSupport reports a clear error instead of letting MySQL fail with a syntax error.
+// `serverVersion` is also called on connecting to MySQL, so it does not add a new failure mode.
+func checkDualPasswordSupport(db *sql.DB) error {
+	currentVersion, err := serverVersion(db)
+	if err != nil {
+		return err
+	}
+	if currentVersion.LessThan(dualPasswordMinVersion) {
+		return fmt.Errorf("dual password requires MySQL %s or later, but the server version is %s", dualPasswordMinVersion, currentVersion)
+	}
+	return nil
+}
 
 func NewUserResource() resource.Resource {
 	return &UserResource{}
@@ -52,15 +73,19 @@ type UserResourceModel struct {
 }
 
 type AuthOptionModel struct {
-	Plugin         types.String `tfsdk:"plugin"`
-	AuthString     types.String `tfsdk:"auth_string"`
-	RandomPassword types.Bool   `tfsdk:"random_password"`
+	Plugin                types.String `tfsdk:"plugin"`
+	AuthString            types.String `tfsdk:"auth_string"`
+	RandomPassword        types.Bool   `tfsdk:"random_password"`
+	RetainCurrentPassword types.Bool   `tfsdk:"retain_current_password"`
+	DiscardOldPassword    types.Bool   `tfsdk:"discard_old_password"`
 }
 
 var AuthOptionModelTypes = map[string]attr.Type{
-	"plugin":          types.StringType,
-	"auth_string":     types.StringType,
-	"random_password": types.BoolType,
+	"plugin":                  types.StringType,
+	"auth_string":             types.StringType,
+	"random_password":         types.BoolType,
+	"retain_current_password": types.BoolType,
+	"discard_old_password":    types.BoolType,
 }
 
 func (r *UserResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -105,6 +130,20 @@ func (r *UserResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 						MarkdownDescription: "Generate random password when create user. Display generated password after creating user. Conflicts with `auth_string`.",
 						Optional:            true,
 					},
+					"retain_current_password": schema.BoolAttribute{
+						MarkdownDescription: "Keep the current password as the secondary password when changing the password. Requires MySQL 8.0.14 or later. " +
+							"See MySQL Reference Manual [8.2.15 Password Management](https://dev.mysql.com/doc/refman/8.0/en/password-management.html#dual-passwords) for more details. " +
+							"This option is ignored when creating a user because `CREATE USER` does not accept `RETAIN CURRENT PASSWORD`. " +
+							"Cannot be true at the same time as `discard_old_password`.",
+						Optional: true,
+					},
+					"discard_old_password": schema.BoolAttribute{
+						MarkdownDescription: "Discard the secondary password. Requires MySQL 8.0.14 or later. " +
+							"See MySQL Reference Manual [8.2.15 Password Management](https://dev.mysql.com/doc/refman/8.0/en/password-management.html#dual-passwords) for more details. " +
+							"This option is ignored when creating a user because a new user has no secondary password. " +
+							"Cannot be true at the same time as `retain_current_password`.",
+						Optional: true,
+					},
 				},
 			},
 		},
@@ -117,6 +156,30 @@ func (r *UserResource) ConfigValidators(ctx context.Context) []resource.ConfigVa
 			path.MatchRoot("auth_option").AtName("auth_string"),
 			path.MatchRoot("auth_option").AtName("random_password"),
 		),
+	}
+}
+
+// ValidateConfig rejects only the combination of `retain_current_password` and `discard_old_password` being true.
+// `resourcevalidator.Conflicting` cannot be used here because it rejects an explicit `false`,
+// which is common when the value comes from an expression.
+func (r *UserResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var data *UserResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() || data.AuthOption.IsNull() || data.AuthOption.IsUnknown() {
+		return
+	}
+
+	var authOption AuthOptionModel
+	resp.Diagnostics.Append(data.AuthOption.As(ctx, &authOption, basetypes.ObjectAsOptions{})...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if authOption.RetainCurrentPassword.ValueBool() && authOption.DiscardOldPassword.ValueBool() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("auth_option").AtName("discard_old_password"),
+			"Invalid Attribute Combination",
+			"`retain_current_password` and `discard_old_password` cannot be true at the same time.")
 	}
 }
 
@@ -154,6 +217,11 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 	if !data.AuthOption.IsNull() {
 		var authOption *AuthOptionModel
 		resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("auth_option"), &authOption)...)
+		if authOption.RetainCurrentPassword.ValueBool() || authOption.DiscardOldPassword.ValueBool() {
+			resp.Diagnostics.AddWarning(
+				"Ignored dual password options on creating user",
+				"`retain_current_password` and `discard_old_password` are available only in `ALTER USER`.")
+		}
 		if authOption.Plugin.IsNull() {
 			if authOption.RandomPassword.ValueBool() {
 				sql += ` IDENTIFIED BY RANDOM PASSWORD`
@@ -277,9 +345,11 @@ WHERE
 			}
 			if plugin != defaultAuthenticationPlugin {
 				attributes := map[string]attr.Value{
-					"plugin":          types.StringValue(plugin),
-					"auth_string":     types.StringNull(),
-					"random_password": types.BoolNull(),
+					"plugin":                  types.StringValue(plugin),
+					"auth_string":             types.StringNull(),
+					"random_password":         types.BoolNull(),
+					"retain_current_password": types.BoolNull(),
+					"discard_old_password":    types.BoolNull(),
 				}
 				data.AuthOption = types.ObjectValueMust(AuthOptionModelTypes, attributes)
 			}
@@ -297,6 +367,9 @@ WHERE
 				attributes["auth_string"] = authOption.AuthString
 			}
 			attributes["random_password"] = authOption.RandomPassword
+			// The dual password options are write-only options for `ALTER USER`, so keep the configured values.
+			attributes["retain_current_password"] = authOption.RetainCurrentPassword
+			attributes["discard_old_password"] = authOption.DiscardOldPassword
 
 			data.AuthOption = types.ObjectValueMust(AuthOptionModelTypes, attributes)
 		}
@@ -328,16 +401,28 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		args = append(args, data.Host.ValueString())
 	}
 
+	discardOldPassword := false
 	if !data.AuthOption.IsNull() {
 		var authOption *AuthOptionModel
 		resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("auth_option"), &authOption)...)
+		discardOldPassword = authOption.DiscardOldPassword.ValueBool()
+		if authOption.RetainCurrentPassword.ValueBool() || discardOldPassword {
+			if err := checkDualPasswordSupport(db); err != nil {
+				resp.Diagnostics.AddError("Could not use dual password", err.Error())
+				return
+			}
+		}
+		// `RETAIN CURRENT PASSWORD` is available only when the statement changes the password.
+		passwordChanged := false
 		if authOption.Plugin.IsNull() {
 			if authOption.RandomPassword.ValueBool() {
 				sql += ` IDENTIFIED BY RANDOM PASSWORD`
+				passwordChanged = true
 			} else if !authOption.AuthString.IsNull() {
 				sql += ` IDENTIFIED BY ?`
 				args = append(args, authOption.AuthString.ValueString())
-			} else {
+				passwordChanged = true
+			} else if !discardOldPassword {
 				resp.Diagnostics.AddWarning("Could not add IDENTIFIED clause without plugin", "")
 			}
 		} else {
@@ -348,10 +433,21 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 				sql += fmt.Sprintf(` IDENTIFIED WITH %s`, plugin)
 				if authOption.RandomPassword.ValueBool() {
 					sql += ` BY RANDOM PASSWORD`
+					passwordChanged = true
 				} else if !authOption.AuthString.IsNull() {
 					sql += ` BY ?`
 					args = append(args, authOption.AuthString.ValueString())
+					passwordChanged = true
 				}
+			}
+		}
+		if authOption.RetainCurrentPassword.ValueBool() {
+			if passwordChanged {
+				sql += ` RETAIN CURRENT PASSWORD`
+			} else {
+				resp.Diagnostics.AddWarning(
+					"Ignored retain_current_password",
+					"`retain_current_password` requires changing the password. Set `auth_string` or `random_password` to retain the current password.")
 			}
 		}
 	}
@@ -378,8 +474,32 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			fmt.Sprintf("Generated password: %s", generatedPassword),
 			"The generated password is not saved in tfstate")
 	}
+	// `DISCARD OLD PASSWORD` cannot be combined with `IDENTIFIED BY` in a single statement.
+	if discardOldPassword {
+		_ = rows.Close()
+		if err := alterUserDiscardOldPassword(ctx, db, data); err != nil {
+			resp.Diagnostics.AddError("Failed discarding old password", err.Error())
+			return
+		}
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+func alterUserDiscardOldPassword(ctx context.Context, db *sql.DB, data *UserResourceModel) error {
+	var args []interface{}
+	args = append(args, data.Name.ValueString())
+
+	query := `ALTER USER ?`
+	if !data.Host.IsNull() {
+		query += `@?`
+		args = append(args, data.Host.ValueString())
+	}
+	query += ` DISCARD OLD PASSWORD`
+
+	tflog.Info(ctx, query, map[string]any{"args": args})
+	_, err := db.ExecContext(ctx, query, args...)
+	return err
 }
 
 func (r *UserResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
