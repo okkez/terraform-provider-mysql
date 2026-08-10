@@ -6,6 +6,7 @@ description: |-
   The mysql_user resource creates and manages a user on a MySQL server.
   ~> Note: The password for the user is provided in plain text, and is obscured by an unsalted hash in the state Read more about sensitive data in state https://www.terraform.io/language/state/sensitive-data. Care is required when using this resource, to avoid disclosing the password.
   ~> Note about random password: The generated random password will be shown in the log immediately after running terraform apply. Be sure to save the password, as there is no way to check it after that.
+  !> Warning about dual password: discard_old_password is the only way to invalidate a password retained by retain_current_password. Removing retain_current_password from the configuration is not equivalent to discarding it, because MySQL keeps the secondary password until DISCARD OLD PASSWORD is issued. An abandoned rotation therefore leaves the old password valid forever. Use has_secondary_password to detect an account which still has a secondary password.
 ---
 
 # mysql_user (Resource)
@@ -16,6 +17,8 @@ The `mysql_user` resource creates and manages a user on a MySQL server.
 
 ~> **Note about random password:** The generated random password will be shown in the log immediately after running `terraform apply`. Be sure to save the password, as there is no way to check it after that.
 
+!> **Warning about dual password:** `discard_old_password` is the only way to invalidate a password retained by `retain_current_password`. Removing `retain_current_password` from the configuration is **not** equivalent to discarding it, because MySQL keeps the secondary password until `DISCARD OLD PASSWORD` is issued. An abandoned rotation therefore leaves the old password valid forever. Use `has_secondary_password` to detect an account which still has a secondary password.
+
 ## Example Usage
 
 ```terraform
@@ -25,6 +28,35 @@ resource "mysql_user" "test" {
   host = "app.example.com"
   auth_option {
     random_password = true
+  }
+}
+
+# rotate the password without downtime using MySQL dual password support
+# see https://dev.mysql.com/doc/refman/8.0/en/password-management.html#dual-passwords
+#
+# 1. change `auth_string` and apply with `retain_current_password = true`
+#    to keep the old password usable as the secondary password
+# 2. deploy the new password to your applications
+# 3. apply with `discard_old_password = true` to drop the old password
+#
+# step 3 is mandatory. removing `retain_current_password` does not discard the old
+# password, so skipping it leaves the old password valid forever
+resource "mysql_user" "rotating-user" {
+  name = "rotating-app-user"
+  host = "app.example.com"
+  auth_option {
+    auth_string             = "new-password"
+    retain_current_password = true
+  }
+}
+
+# warn while an account still has a secondary password, so that a rotation which was
+# never finished with `discard_old_password` does not go unnoticed
+# `check` requires Terraform 1.5 or later. use an output instead on an earlier version
+check "no_stale_secondary_password" {
+  assert {
+    condition     = !mysql_user.rotating-user.has_secondary_password
+    error_message = "${mysql_user.rotating-user.id} still has a secondary password. Apply with discard_old_password = true once every consumer uses the new password."
   }
 }
 
@@ -53,6 +85,7 @@ resource "mysql_user" "rds-user" {
 
 ### Read-Only
 
+- `has_secondary_password` (Boolean) Whether the account currently has a secondary password, read from `mysql.user.User_attributes`. Unlike `retain_current_password` and `discard_old_password`, which are write-only options for `ALTER USER`, this reports the state of the account on the server, so it can be used to detect a rotation which was never finished with `discard_old_password`. Always `false` on MySQL earlier than 8.0.14, which has no dual password support.
 - `id` (String) The identifier
 
 <a id="nestedblock--auth_option"></a>
@@ -61,8 +94,10 @@ resource "mysql_user" "rds-user" {
 Optional:
 
 - `auth_string` (String) Plain text password. Conflicts with `random_password`.
+- `discard_old_password` (Boolean) Discard the secondary password. Requires MySQL 8.0.14 or later. See MySQL Reference Manual [8.2.15 Password Management](https://dev.mysql.com/doc/refman/8.0/en/password-management.html#dual-passwords) for more details. This option is ignored when creating a user because a new user has no secondary password. Cannot be true at the same time as `retain_current_password`.
 - `plugin` (String) An authentication plugin name. See MySQL Reference Manual [6.4.1 Authentication Plugins](https://dev.mysql.com/doc/refman/8.0/en/authentication-plugins.html) for more details. Conflicts with `auth_string`, `random_password` if set `AWSAuthenticationPlugin`.
 - `random_password` (Boolean) Generate random password when create user. Display generated password after creating user. Conflicts with `auth_string`.
+- `retain_current_password` (Boolean) Keep the current password as the secondary password when changing the password. Requires MySQL 8.0.14 or later. See MySQL Reference Manual [8.2.15 Password Management](https://dev.mysql.com/doc/refman/8.0/en/password-management.html#dual-passwords) for more details. This option is ignored when creating a user because `CREATE USER` does not accept `RETAIN CURRENT PASSWORD`. Cannot be true at the same time as `discard_old_password`.
 
 ## Import
 
