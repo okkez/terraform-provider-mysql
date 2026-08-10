@@ -42,7 +42,7 @@ resource "mysql_user" "test" {
 # step 3 is mandatory. removing `retain_current_password` does not discard the old
 # password, so skipping it leaves the old password valid forever
 resource "mysql_user" "rotating-user" {
-  name = "app-user"
+  name = "rotating-app-user"
   host = "app.example.com"
   auth_option {
     auth_string             = "new-password"
