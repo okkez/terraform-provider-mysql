@@ -41,6 +41,14 @@ const (
 // See https://dev.mysql.com/doc/refman/8.0/en/password-management.html#dual-passwords for more details.
 var dualPasswordMinVersion = version.Must(version.NewVersion("8.0.14"))
 
+// supportsDualPassword reports whether the server version supports dual password.
+// `@@GLOBAL.version` often carries a suffix such as `-log` with binary logging enabled,
+// `-commercial`, or a distribution specific one. `go-version` treats the suffix as a
+// prerelease, which sorts below the release itself, so compare only the core version.
+func supportsDualPassword(currentVersion *version.Version) bool {
+	return !currentVersion.Core().LessThan(dualPasswordMinVersion)
+}
+
 // checkDualPasswordSupport reports a clear error instead of letting MySQL fail with a syntax error.
 // `serverVersion` is also called on connecting to MySQL, so it does not add a new failure mode.
 func checkDualPasswordSupport(db *sql.DB) error {
@@ -48,7 +56,7 @@ func checkDualPasswordSupport(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	if currentVersion.LessThan(dualPasswordMinVersion) {
+	if !supportsDualPassword(currentVersion) {
 		return fmt.Errorf("dual password requires MySQL %s or later, but the server version is %s", dualPasswordMinVersion, currentVersion)
 	}
 	return nil

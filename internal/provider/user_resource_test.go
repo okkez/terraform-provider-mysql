@@ -7,10 +7,45 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/hashicorp/go-version"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/okkez/terraform-provider-mysql/internal/utils"
 )
+
+// TestSupportsDualPassword checks the version comparison against the version strings
+// MySQL actually reports. `@@GLOBAL.version` often carries a suffix such as `-log`,
+// which `go-version` treats as a prerelease and sorts below the release itself.
+func TestSupportsDualPassword(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		versionString string
+		want          bool
+	}{
+		{"5.7.44", false},
+		{"8.0.13", false},
+		{"8.0.13-log", false},
+		{"8.0.14", true},
+		{"8.0.14-log", true},
+		{"8.0.14-commercial", true},
+		{"8.0.14-0ubuntu0.22.04.1", true},
+		{"8.0.39", true},
+		{"8.0.36-28", true},
+		{"8.4.0", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.versionString, func(t *testing.T) {
+			t.Parallel()
+			currentVersion, err := version.NewVersion(tt.versionString)
+			if err != nil {
+				t.Fatalf("failed parsing version %q: %v", tt.versionString, err)
+			}
+			if got := supportsDualPassword(currentVersion); got != tt.want {
+				t.Errorf("supportsDualPassword(%q): got %t, want %t", tt.versionString, got, tt.want)
+			}
+		})
+	}
+}
 
 func TestAccUserResource(t *testing.T) {
 	users := []UserModel{
