@@ -483,6 +483,33 @@ func TestAccUserResource_DualPasswordUnsupportedVersion(t *testing.T) {
 	})
 }
 
+// TestAccUserResource_DualPasswordBothTrueFromExpression checks that the both options cannot be
+// true at the same time when one of them is derived from an expression rather than a literal.
+// It does not tell the two layers apart: `ValidateConfig` rejects the combination as soon as the
+// value is resolved, and `Update` is only reached for a value which is still unknown by then, so
+// either message is accepted. The check in `Update` was verified by disabling the one in
+// `ValidateConfig`, which makes this apply succeed with no error and no warning.
+func TestAccUserResource_DualPasswordBothTrueFromExpression(t *testing.T) {
+	user := NewRandomUser("test-user", "%")
+	helper := NewRandomUser("test-user", "%")
+	t.Logf("%+v %+v\n", user, helper)
+	users := []UserModel{user, helper}
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		CheckDestroy:             testAccUserResource_CheckDestroy(users),
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccUserResource_ConfigWithDualPassword(t, user.GetName(), user.GetHost(), "password1", false, false),
+			},
+			{
+				Config:      testAccUserResource_ConfigWithRetainCurrentPasswordFromExpression(t, user.GetName(), helper.GetName(), user.GetHost(), "password2"),
+				ExpectError: regexp.MustCompile("Invalid Attribute Combination|Conflicting dual password options"),
+			},
+		},
+	})
+}
+
 // TestAccUserResource_DualPasswordBothTrue checks that the both options cannot be true at the same time.
 func TestAccUserResource_DualPasswordBothTrue(t *testing.T) {
 	user := NewRandomUser("test-user", "%")
@@ -644,6 +671,45 @@ resource "mysql_user" "test" {
 		AuthString:            authString,
 		RetainCurrentPassword: retainCurrentPassword,
 		DiscardOldPassword:    discardOldPassword,
+	}
+	config, err := utils.Render(source, data)
+	if err != nil {
+		t.Fatal(err)
+		t.Fail()
+	}
+	return config
+}
+
+// testAccUserResource_ConfigWithRetainCurrentPasswordFromExpression derives `retain_current_password`
+// from a resource which is created by the same apply, so that the value is unknown while the
+// configuration is validated and only known when the user is updated.
+func testAccUserResource_ConfigWithRetainCurrentPasswordFromExpression(t *testing.T, name, helperName, host, authString string) string {
+	source := `
+resource "mysql_user" "helper" {
+  name = "{{ .HelperName }}"
+  host = "{{ .Host }}"
+}
+
+resource "mysql_user" "test" {
+  name = "{{ .Name }}"
+  host = "{{ .Host }}"
+  auth_option {
+    auth_string             = "{{ .AuthString }}"
+    retain_current_password = mysql_user.helper.id != ""
+    discard_old_password    = true
+  }
+}
+`
+	data := struct {
+		Name       string
+		HelperName string
+		Host       string
+		AuthString string
+	}{
+		Name:       name,
+		HelperName: helperName,
+		Host:       host,
+		AuthString: authString,
 	}
 	config, err := utils.Render(source, data)
 	if err != nil {

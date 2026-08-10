@@ -456,6 +456,16 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		var authOption *AuthOptionModel
 		resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("auth_option"), &authOption)...)
 		discardOldPassword = authOption.DiscardOldPassword.ValueBool()
+		// `ValidateConfig` sees an unknown value as false, so repeat the check on the resolved
+		// values. Without it the statement would retain the current password and the following
+		// `DISCARD OLD PASSWORD` would immediately discard it, with no error and no warning.
+		if authOption.RetainCurrentPassword.ValueBool() && discardOldPassword {
+			resp.Diagnostics.AddError(
+				"Conflicting dual password options",
+				"`retain_current_password` and `discard_old_password` cannot be true at the same time. "+
+					"Applying both would retain the current password and discard it right away.")
+			return
+		}
 		if authOption.RetainCurrentPassword.ValueBool() || discardOldPassword {
 			if err := checkDualPasswordSupport(db); err != nil {
 				resp.Diagnostics.AddError("Could not use dual password", err.Error())
