@@ -288,7 +288,7 @@ func TestAccUserResource_DualPassword(t *testing.T) {
 	t.Logf("%+v\n", user)
 	users := []UserModel{user}
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheckDualPassword(t) },
 		CheckDestroy:             testAccUserResource_CheckDestroy(users),
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
@@ -340,7 +340,7 @@ func TestAccUserResource_DualPasswordRotateTwice(t *testing.T) {
 	t.Logf("%+v\n", user)
 	users := []UserModel{user}
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheckDualPassword(t) },
 		CheckDestroy:             testAccUserResource_CheckDestroy(users),
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
@@ -379,7 +379,7 @@ func TestAccUserResource_DualPasswordAbandonedRotation(t *testing.T) {
 	t.Logf("%+v\n", user)
 	users := []UserModel{user}
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheckDualPassword(t) },
 		CheckDestroy:             testAccUserResource_CheckDestroy(users),
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
@@ -422,7 +422,7 @@ func TestAccUserResource_DualPasswordWithPlugin(t *testing.T) {
 	t.Logf("%+v\n", user)
 	users := []UserModel{user}
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheckDualPassword(t) },
 		CheckDestroy:             testAccUserResource_CheckDestroy(users),
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
@@ -463,12 +463,7 @@ func TestAccUserResource_DualPasswordUnsupportedVersion(t *testing.T) {
 	t.Logf("%+v\n", user)
 	users := []UserModel{user}
 	resource.Test(t, resource.TestCase{
-		PreCheck: func() {
-			testAccPreCheck(t)
-			if err := checkDualPasswordSupport(testServerVersion(t)); err == nil {
-				t.Skipf("The server supports dual password")
-			}
-		},
+		PreCheck:                 func() { testAccPreCheckDualPasswordUnsupported(t) },
 		CheckDestroy:             testAccUserResource_CheckDestroy(users),
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
@@ -476,8 +471,11 @@ func TestAccUserResource_DualPasswordUnsupportedVersion(t *testing.T) {
 				Config: testAccUserResource_ConfigWithDualPassword(t, user.GetName(), user.GetHost(), "password1", false, false),
 			},
 			{
-				Config:      testAccUserResource_ConfigWithDualPassword(t, user.GetName(), user.GetHost(), "password2", true, false),
-				ExpectError: regexp.MustCompile("Could not use dual password"),
+				Config: testAccUserResource_ConfigWithDualPassword(t, user.GetName(), user.GetHost(), "password2", true, false),
+				// Asserting on the version specific message, because the summary
+				// `Could not use dual password` is reported for unrelated errors too.
+				ExpectError: regexp.MustCompile(fmt.Sprintf("requires MySQL %s or later",
+					regexp.QuoteMeta(dualPasswordMinVersion.String()))),
 			},
 		},
 	})
@@ -809,6 +807,25 @@ func testServerVersion(t *testing.T) *version.Version {
 		t.Fatalf("failed getting the server version: %v", err)
 	}
 	return currentVersion
+}
+
+// testAccPreCheckDualPassword skips the test unless the server supports dual password.
+// `mysql.user.User_attributes` does not exist before MySQL 8.0.14 either, so a test which
+// reads the secondary password state cannot run on an earlier server at all.
+func testAccPreCheckDualPassword(t *testing.T) {
+	testAccPreCheck(t)
+	if err := checkDualPasswordSupport(testServerVersion(t)); err != nil {
+		t.Skipf("%v", err)
+	}
+}
+
+// testAccPreCheckDualPasswordUnsupported skips the test unless the server is earlier than the
+// version which added dual password.
+func testAccPreCheckDualPasswordUnsupported(t *testing.T) {
+	testAccPreCheck(t)
+	if err := checkDualPasswordSupport(testServerVersion(t)); err == nil {
+		t.Skipf("The server supports dual password")
+	}
 }
 
 // testLogin opens a new connection without using the connection cache,
