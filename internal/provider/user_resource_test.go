@@ -8,6 +8,9 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-version"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/okkez/terraform-provider-mysql/internal/utils"
@@ -44,6 +47,56 @@ func TestSupportsDualPassword(t *testing.T) {
 				t.Errorf("supportsDualPassword(%q): got %t, want %t", tt.versionString, got, tt.want)
 			}
 		})
+	}
+}
+
+// TestStateWithoutDiscardOldPassword checks that `discard_old_password` is unset while the
+// other attributes are kept, so that a failed discard still leaves a diff to retry.
+func TestStateWithoutDiscardOldPassword(t *testing.T) {
+	t.Parallel()
+	authOption := types.ObjectValueMust(AuthOptionModelTypes, map[string]attr.Value{
+		"plugin":                  types.StringNull(),
+		"auth_string":             types.StringValue("password"),
+		"random_password":         types.BoolNull(),
+		"retain_current_password": types.BoolValue(false),
+		"discard_old_password":    types.BoolValue(true),
+	})
+	data := &UserResourceModel{
+		Name:       types.StringValue("test-user"),
+		Host:       types.StringValue("%"),
+		Lock:       types.BoolValue(true),
+		AuthOption: authOption,
+	}
+
+	got, diags := stateWithoutDiscardOldPassword(data)
+	if diags.HasError() {
+		t.Fatalf("unexpected diagnostics: %v", diags)
+	}
+
+	var gotAuthOption AuthOptionModel
+	if diags := got.AuthOption.As(context.Background(), &gotAuthOption, basetypes.ObjectAsOptions{}); diags.HasError() {
+		t.Fatalf("unexpected diagnostics: %v", diags)
+	}
+	if !gotAuthOption.DiscardOldPassword.IsNull() {
+		t.Errorf("discard_old_password: got %v, want null", gotAuthOption.DiscardOldPassword)
+	}
+	if gotAuthOption.AuthString.ValueString() != "password" {
+		t.Errorf("auth_string: got %q, want %q", gotAuthOption.AuthString.ValueString(), "password")
+	}
+	if gotAuthOption.RetainCurrentPassword.ValueBool() {
+		t.Errorf("retain_current_password: got true, want false")
+	}
+	if !got.Lock.ValueBool() {
+		t.Errorf("lock: got false, want true")
+	}
+
+	// The argument must not be modified, because it is still used to report the error.
+	var originalAuthOption AuthOptionModel
+	if diags := data.AuthOption.As(context.Background(), &originalAuthOption, basetypes.ObjectAsOptions{}); diags.HasError() {
+		t.Fatalf("unexpected diagnostics: %v", diags)
+	}
+	if !originalAuthOption.DiscardOldPassword.ValueBool() {
+		t.Errorf("the argument was modified: discard_old_password got %v, want true", originalAuthOption.DiscardOldPassword)
 	}
 }
 

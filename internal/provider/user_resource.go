@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/go-version"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -486,12 +487,45 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	if discardOldPassword {
 		_ = rows.Close()
 		if err := alterUserDiscardOldPassword(ctx, db, data); err != nil {
+			// MySQL DDL is not transactional, so the `ALTER USER` above is already committed.
+			// Save the state to keep it in sync with the server before reporting the error.
+			partialState, diags := stateWithoutDiscardOldPassword(data)
+			resp.Diagnostics.Append(diags...)
+			resp.Diagnostics.Append(resp.State.Set(ctx, partialState)...)
 			resp.Diagnostics.AddError("Failed discarding old password", err.Error())
 			return
 		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+// stateWithoutDiscardOldPassword returns a copy of `data` with `discard_old_password` unset.
+// It is used when `DISCARD OLD PASSWORD` fails after the preceding `ALTER USER` succeeded.
+// Keeping the attribute unset leaves a diff against the configuration, so that the next
+// apply retries the discard instead of reporting no changes while the secondary password
+// is still alive on the server.
+func stateWithoutDiscardOldPassword(data *UserResourceModel) (*UserResourceModel, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if data.AuthOption.IsNull() || data.AuthOption.IsUnknown() {
+		return data, diags
+	}
+
+	attributes := make(map[string]attr.Value, len(AuthOptionModelTypes))
+	for name, value := range data.AuthOption.Attributes() {
+		attributes[name] = value
+	}
+	attributes["discard_old_password"] = types.BoolNull()
+
+	authOption, d := types.ObjectValue(AuthOptionModelTypes, attributes)
+	diags.Append(d...)
+	if diags.HasError() {
+		return data, diags
+	}
+
+	partialState := *data
+	partialState.AuthOption = authOption
+	return &partialState, diags
 }
 
 func alterUserDiscardOldPassword(ctx context.Context, db *sql.DB, data *UserResourceModel) error {
