@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/go-version"
@@ -45,6 +46,37 @@ func TestSupportsDualPassword(t *testing.T) {
 			}
 			if got := supportsDualPassword(currentVersion); got != tt.want {
 				t.Errorf("supportsDualPassword(%q): got %t, want %t", tt.versionString, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestSecondaryPasswordExpression checks that `User_attributes` is not referenced on a server
+// which does not have the column, because referencing it fails with ER_BAD_FIELD_ERROR.
+func TestSecondaryPasswordExpression(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		versionString        string
+		wantColumnReferenced bool
+	}{
+		{"8.0.13", false},
+		{"8.0.13-log", false},
+		{"8.0.14", true},
+		{"8.0.14-log", true},
+		{"8.0.39", true},
+		{"8.4.0", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.versionString, func(t *testing.T) {
+			t.Parallel()
+			currentVersion, err := version.NewVersion(tt.versionString)
+			if err != nil {
+				t.Fatalf("failed parsing version %q: %v", tt.versionString, err)
+			}
+			got := secondaryPasswordExpression(currentVersion)
+			if strings.Contains(got, "User_attributes") != tt.wantColumnReferenced {
+				t.Errorf("secondaryPasswordExpression(%q) = %q, want User_attributes referenced: %t",
+					tt.versionString, got, tt.wantColumnReferenced)
 			}
 		})
 	}
@@ -266,6 +298,7 @@ func TestAccUserResource_DualPassword(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_user.test", "id", user.GetID()),
 					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.auth_string", "password1"),
+					resource.TestCheckResourceAttr("mysql_user.test", "has_secondary_password", "false"),
 					testAccUserResource_CheckSecondaryPassword(user, false),
 					testAccUserResource_CheckLogin(user, "password1"),
 					testAccUserResource_CheckLoginFailure(user, "password2"),
@@ -277,6 +310,7 @@ func TestAccUserResource_DualPassword(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.auth_string", "password2"),
 					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.retain_current_password", "true"),
+					resource.TestCheckResourceAttr("mysql_user.test", "has_secondary_password", "true"),
 					testAccUserResource_CheckSecondaryPassword(user, true),
 					testAccUserResource_CheckLogin(user, "password1"),
 					testAccUserResource_CheckLogin(user, "password2"),
@@ -288,6 +322,7 @@ func TestAccUserResource_DualPassword(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.auth_string", "password2"),
 					resource.TestCheckResourceAttr("mysql_user.test", "auth_option.discard_old_password", "true"),
+					resource.TestCheckResourceAttr("mysql_user.test", "has_secondary_password", "false"),
 					testAccUserResource_CheckSecondaryPassword(user, false),
 					testAccUserResource_CheckLogin(user, "password2"),
 					testAccUserResource_CheckLoginFailure(user, "password1"),
@@ -335,6 +370,51 @@ func TestAccUserResource_DualPasswordRotateTwice(t *testing.T) {
 	})
 }
 
+// TestAccUserResource_DualPasswordAbandonedRotation checks that `has_secondary_password` reports
+// a rotation which was never finished with `discard_old_password`. Removing
+// `retain_current_password` does not discard the secondary password, so the retained password
+// stays valid and only this attribute makes it visible.
+func TestAccUserResource_DualPasswordAbandonedRotation(t *testing.T) {
+	user := NewRandomUser("test-user", "%")
+	t.Logf("%+v\n", user)
+	users := []UserModel{user}
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		CheckDestroy:             testAccUserResource_CheckDestroy(users),
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccUserResource_ConfigWithDualPassword(t, user.GetName(), user.GetHost(), "password1", false, false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_user.test", "has_secondary_password", "false"),
+				),
+			},
+			// Retain the current password, which keeps `password1` as the secondary password
+			{
+				Config: testAccUserResource_ConfigWithDualPassword(t, user.GetName(), user.GetHost(), "password2", true, false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_user.test", "has_secondary_password", "true"),
+					testAccUserResource_CheckLogin(user, "password1"),
+					testAccUserResource_CheckLogin(user, "password2"),
+				),
+			},
+			// Abandon the rotation by dropping `retain_current_password` instead of discarding.
+			// `password1` is still the secondary password, so it keeps working.
+			{
+				Config: testAccUserResource_ConfigWithDualPassword(t, user.GetName(), user.GetHost(), "password3", false, false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_user.test", "has_secondary_password", "true"),
+					testAccUserResource_CheckSecondaryPassword(user, true),
+					testAccUserResource_CheckLogin(user, "password1"),
+					testAccUserResource_CheckLoginFailure(user, "password2"),
+					testAccUserResource_CheckLogin(user, "password3"),
+				),
+			},
+			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
 // TestAccUserResource_DualPasswordWithPlugin checks the dual password options
 // with `IDENTIFIED WITH <plugin> BY ?`.
 func TestAccUserResource_DualPasswordWithPlugin(t *testing.T) {
@@ -356,6 +436,7 @@ func TestAccUserResource_DualPasswordWithPlugin(t *testing.T) {
 			{
 				Config: testAccUserResource_ConfigWithDualPasswordAndPlugin(t, user.GetName(), user.GetHost(), "caching_sha2_password", "password2", true, false),
 				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_user.test", "has_secondary_password", "true"),
 					testAccUserResource_CheckSecondaryPassword(user, true),
 					testAccUserResource_CheckLogin(user, "password1"),
 					testAccUserResource_CheckLogin(user, "password2"),
@@ -364,6 +445,7 @@ func TestAccUserResource_DualPasswordWithPlugin(t *testing.T) {
 			{
 				Config: testAccUserResource_ConfigWithDualPasswordAndPlugin(t, user.GetName(), user.GetHost(), "caching_sha2_password", "password2", false, true),
 				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_user.test", "has_secondary_password", "false"),
 					testAccUserResource_CheckSecondaryPassword(user, false),
 					testAccUserResource_CheckLoginFailure(user, "password1"),
 					testAccUserResource_CheckLogin(user, "password2"),

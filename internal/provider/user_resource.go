@@ -50,6 +50,17 @@ func supportsDualPassword(currentVersion *version.Version) bool {
 	return !currentVersion.Core().LessThan(dualPasswordMinVersion)
 }
 
+// secondaryPasswordExpression returns the SQL expression reporting whether an account has a
+// secondary password. `mysql.user.User_attributes` exists only from MySQL 8.0.14, the version
+// which added dual password, so an earlier server never has a secondary password and the column
+// must not be referenced at all to avoid ER_BAD_FIELD_ERROR.
+func secondaryPasswordExpression(currentVersion *version.Version) string {
+	if !supportsDualPassword(currentVersion) {
+		return `FALSE`
+	}
+	return `JSON_CONTAINS_PATH(User_attributes, 'one', '$.additional_password') IS TRUE`
+}
+
 // checkDualPasswordSupport reports a clear error instead of letting MySQL fail with a syntax error.
 // `serverVersion` is also called on connecting to MySQL, so it does not add a new failure mode.
 func checkDualPasswordSupport(db *sql.DB) error {
@@ -74,11 +85,12 @@ type UserResource struct {
 
 // UserResourceModel describes the resource data model.
 type UserResourceModel struct {
-	ID         types.String `tfsdk:"id"`
-	Name       types.String `tfsdk:"name"`
-	Host       types.String `tfsdk:"host"`
-	Lock       types.Bool   `tfsdk:"lock"`
-	AuthOption types.Object `tfsdk:"auth_option"`
+	ID                   types.String `tfsdk:"id"`
+	Name                 types.String `tfsdk:"name"`
+	Host                 types.String `tfsdk:"host"`
+	Lock                 types.Bool   `tfsdk:"lock"`
+	HasSecondaryPassword types.Bool   `tfsdk:"has_secondary_password"`
+	AuthOption           types.Object `tfsdk:"auth_option"`
 }
 
 type AuthOptionModel struct {
@@ -109,7 +121,12 @@ func (r *UserResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 			"state [Read more about sensitive data in state](https://www.terraform.io/language/state/sensitive-data). " +
 			"Care is required when using this resource, to avoid disclosing the password.\n\n" +
 			"~> **Note about random password:** The generated random password will be shown in the log immediately after running `terraform apply`. " +
-			"Be sure to save the password, as there is no way to check it after that.",
+			"Be sure to save the password, as there is no way to check it after that.\n\n" +
+			"!> **Warning about dual password:** `discard_old_password` is the only way to invalidate a password retained by " +
+			"`retain_current_password`. Removing `retain_current_password` from the configuration is **not** equivalent to discarding it, " +
+			"because MySQL keeps the secondary password until `DISCARD OLD PASSWORD` is issued. " +
+			"An abandoned rotation therefore leaves the old password valid forever. " +
+			"Use `has_secondary_password` to detect an account which still has a secondary password.",
 		Attributes: map[string]schema.Attribute{
 			"id":   utils.IDAttribute(),
 			"name": utils.NameAttribute("user", true),
@@ -119,6 +136,13 @@ func (r *UserResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(false),
+			},
+			"has_secondary_password": schema.BoolAttribute{
+				MarkdownDescription: "Whether the account currently has a secondary password, read from `mysql.user.User_attributes`. " +
+					"Unlike `retain_current_password` and `discard_old_password`, which are write-only options for `ALTER USER`, " +
+					"this reports the state of the account on the server, so it can be used to detect a rotation which was never " +
+					"finished with `discard_old_password`. Always `false` on MySQL earlier than 8.0.14, which has no dual password support.",
+				Computed: true,
 			},
 		},
 		Blocks: map[string]schema.Block{
@@ -284,6 +308,8 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 	}
 
 	data.ID = types.StringValue(fmt.Sprintf("%s@%s", data.Name.ValueString(), data.Host.ValueString()))
+	// `CREATE USER` does not accept `RETAIN CURRENT PASSWORD`, so a new user never has one.
+	data.HasSecondaryPassword = types.BoolValue(false)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -292,6 +318,12 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	db, err := getDatabase(ctx, r.mysqlConfig)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to connect MySQL", err.Error())
+		return
+	}
+
+	currentVersion, err := getDatabaseVersion(ctx, r.mysqlConfig)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed getting the server version", err.Error())
 		return
 	}
 
@@ -307,27 +339,30 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	args = append(args, host)
 	args = append(args, user)
 
-	sql := `
+	sql := fmt.Sprintf(`
 SELECT
   Host
 , User
 , plugin
 , authentication_string
 , account_locked
+, %s
 FROM
    mysql.user
 WHERE
   Host = ?
   AND User = ?
-`
+`, secondaryPasswordExpression(currentVersion))
 	tflog.Info(ctx, sql, map[string]any{"args": args})
 	var _host, _user, plugin, authString, accountLocked string
-	if err = db.QueryRowContext(ctx, sql, args...).Scan(&_host, &_user, &plugin, &authString, &accountLocked); err != nil {
+	var hasSecondaryPassword bool
+	if err = db.QueryRowContext(ctx, sql, args...).Scan(&_host, &_user, &plugin, &authString, &accountLocked, &hasSecondaryPassword); err != nil {
 		resp.State.RemoveResource(ctx)
 		return
 	} else {
 		data.Name = types.StringValue(user)
 		data.Host = types.StringValue(host)
+		data.HasSecondaryPassword = types.BoolValue(hasSecondaryPassword)
 		data.Lock = types.BoolValue(accountLocked == "Y")
 
 		if data.AuthOption.IsNull() {
@@ -391,6 +426,12 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	db, err := getDatabase(ctx, r.mysqlConfig)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to connect MySQL", err.Error())
+		return
+	}
+
+	currentVersion, err := getDatabaseVersion(ctx, r.mysqlConfig)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed getting the server version", err.Error())
 		return
 	}
 
@@ -484,20 +525,59 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			"The generated password is not saved in tfstate")
 	}
 	// `DISCARD OLD PASSWORD` cannot be combined with `IDENTIFIED BY` in a single statement.
+	var discardErr error
 	if discardOldPassword {
 		_ = rows.Close()
-		if err := alterUserDiscardOldPassword(ctx, db, data); err != nil {
-			// MySQL DDL is not transactional, so the `ALTER USER` above is already committed.
-			// Save the state to keep it in sync with the server before reporting the error.
-			partialState, diags := stateWithoutDiscardOldPassword(data)
-			resp.Diagnostics.Append(diags...)
-			resp.Diagnostics.Append(resp.State.Set(ctx, partialState)...)
-			resp.Diagnostics.AddError("Failed discarding old password", err.Error())
-			return
-		}
+		discardErr = alterUserDiscardOldPassword(ctx, db, data)
+	}
+
+	// The secondary password is read back because it survives a password change which does not
+	// specify `RETAIN CURRENT PASSWORD`, so it cannot be derived from this update alone.
+	if hasSecondaryPassword, err := readHasSecondaryPassword(ctx, db, currentVersion, data); err == nil {
+		data.HasSecondaryPassword = types.BoolValue(hasSecondaryPassword)
+	} else {
+		// Failing here would throw away the state although `ALTER USER` is already committed,
+		// which is the very thing saving the state below avoids. Keep the recorded value, which
+		// the next successful read corrects, and report the failure as a warning instead.
+		resp.Diagnostics.AddWarning(
+			"Could not read the secondary password state",
+			fmt.Sprintf("Keeping the value recorded in the state for `has_secondary_password`: %v", err))
+		// `ValueBool` turns the null of a state written before this attribute existed into false,
+		// which a condition such as `!has_secondary_password` would otherwise fail to evaluate.
+		data.HasSecondaryPassword = types.BoolValue(state.HasSecondaryPassword.ValueBool())
+	}
+
+	if discardErr != nil {
+		// MySQL DDL is not transactional, so the `ALTER USER` above is already committed.
+		// Save the state to keep it in sync with the server before reporting the error.
+		partialState, diags := stateWithoutDiscardOldPassword(data)
+		resp.Diagnostics.Append(diags...)
+		resp.Diagnostics.Append(resp.State.Set(ctx, partialState)...)
+		resp.Diagnostics.AddError("Failed discarding old password", discardErr.Error())
+		return
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+// readHasSecondaryPassword reports whether the account currently has a secondary password.
+// `ALTER USER` does not report it, so it has to be read back after updating the user.
+func readHasSecondaryPassword(ctx context.Context, db *sql.DB, currentVersion *version.Version, data *UserResourceModel) (bool, error) {
+	if !supportsDualPassword(currentVersion) {
+		return false, nil
+	}
+
+	var args []interface{}
+	args = append(args, data.Name.ValueString())
+	args = append(args, data.Host.ValueString())
+
+	query := fmt.Sprintf(`SELECT %s FROM mysql.user WHERE User = ? AND Host = ?`, secondaryPasswordExpression(currentVersion))
+	tflog.Info(ctx, query, map[string]any{"args": args})
+	var hasSecondaryPassword bool
+	if err := db.QueryRowContext(ctx, query, args...).Scan(&hasSecondaryPassword); err != nil {
+		return false, err
+	}
+	return hasSecondaryPassword, nil
 }
 
 // stateWithoutDiscardOldPassword returns a copy of `data` with `discard_old_password` unset.

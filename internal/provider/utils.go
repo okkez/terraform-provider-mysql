@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	"github.com/hashicorp/go-version"
 )
 
 func getDatabase(ctx context.Context, mysqlConf *MySQLConfiguration) (*sql.DB, error) {
@@ -16,17 +18,17 @@ func getDatabase(ctx context.Context, mysqlConf *MySQLConfiguration) (*sql.DB, e
 	return oneConnection.Db, nil
 }
 
-/*
-	func getDatabaseVersion(ctx context.Context, mysqlConf *MySQLConfiguration) *version.Version {
-		oneConnection, err := connectToMySQLInternal(ctx, mysqlConf)
+// getDatabaseVersion returns the server version determined when connecting.
+// The version is cached per DSN, so this does not query the server again.
+func getDatabaseVersion(ctx context.Context, mysqlConf *MySQLConfiguration) (*version.Version, error) {
+	oneConnection, err := connectToMySQLInternal(ctx, mysqlConf)
 
-		if err != nil {
-			tflog.Info(ctx, fmt.Sprintf("getting DB got us error: %v", err))
-		}
-
-		return oneConnection.Version
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to MySQL: %v", err)
 	}
-*/
+
+	return oneConnection.Version, nil
+}
 
 func quoteIdentifier(ctx context.Context, db *sql.DB, identifier string) (string, error) {
 	var quotedIdentifier string
