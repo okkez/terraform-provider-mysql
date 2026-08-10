@@ -62,12 +62,7 @@ func secondaryPasswordExpression(currentVersion *version.Version) string {
 }
 
 // checkDualPasswordSupport reports a clear error instead of letting MySQL fail with a syntax error.
-// `serverVersion` is also called on connecting to MySQL, so it does not add a new failure mode.
-func checkDualPasswordSupport(db *sql.DB) error {
-	currentVersion, err := serverVersion(db)
-	if err != nil {
-		return err
-	}
+func checkDualPasswordSupport(currentVersion *version.Version) error {
 	if !supportsDualPassword(currentVersion) {
 		return fmt.Errorf("dual password requires MySQL %s or later, but the server version is %s", dualPasswordMinVersion, currentVersion)
 	}
@@ -466,12 +461,6 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 					"Applying both would retain the current password and discard it right away.")
 			return
 		}
-		if authOption.RetainCurrentPassword.ValueBool() || discardOldPassword {
-			if err := checkDualPasswordSupport(db); err != nil {
-				resp.Diagnostics.AddError("Could not use dual password", err.Error())
-				return
-			}
-		}
 		// `RETAIN CURRENT PASSWORD` is available only when the statement changes the password.
 		passwordChanged := false
 		if authOption.Plugin.IsNull() {
@@ -501,14 +490,22 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 				}
 			}
 		}
-		if authOption.RetainCurrentPassword.ValueBool() {
-			if passwordChanged {
-				sql += ` RETAIN CURRENT PASSWORD`
-			} else {
-				resp.Diagnostics.AddWarning(
-					"Ignored retain_current_password",
-					"`retain_current_password` requires changing the password. Set `auth_string` or `random_password` to retain the current password.")
+		retainCurrentPassword := authOption.RetainCurrentPassword.ValueBool() && passwordChanged
+		if authOption.RetainCurrentPassword.ValueBool() && !passwordChanged {
+			resp.Diagnostics.AddWarning(
+				"Ignored retain_current_password",
+				"`retain_current_password` requires changing the password. Set `auth_string` or `random_password` to retain the current password.")
+		}
+		// The server version is checked where a dual password statement is actually issued, so
+		// that an ignored `retain_current_password` does not fail on a server which never sees it.
+		if retainCurrentPassword || discardOldPassword {
+			if err := checkDualPasswordSupport(currentVersion); err != nil {
+				resp.Diagnostics.AddError("Could not use dual password", err.Error())
+				return
 			}
+		}
+		if retainCurrentPassword {
+			sql += ` RETAIN CURRENT PASSWORD`
 		}
 	}
 	if data.Lock.ValueBool() {

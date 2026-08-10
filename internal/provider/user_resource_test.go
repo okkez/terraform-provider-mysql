@@ -465,7 +465,7 @@ func TestAccUserResource_DualPasswordUnsupportedVersion(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck: func() {
 			testAccPreCheck(t)
-			if err := checkDualPasswordSupport(testDatabase()); err == nil {
+			if err := checkDualPasswordSupport(testServerVersion(t)); err == nil {
 				t.Skipf("The server supports dual password")
 			}
 		},
@@ -798,6 +798,17 @@ func testAccUserResource_CheckLoginFailure(user UserModel, password string) reso
 		}
 		return nil
 	}
+}
+
+// testServerVersion returns the version of the server under test.
+// A failure here is a broken test environment, not an unsupported server, so it fails the test
+// instead of being reported as a missing dual password support.
+func testServerVersion(t *testing.T) *version.Version {
+	currentVersion, err := serverVersion(testDatabase())
+	if err != nil {
+		t.Fatalf("failed getting the server version: %v", err)
+	}
+	return currentVersion
 }
 
 // testLogin opens a new connection without using the connection cache,
