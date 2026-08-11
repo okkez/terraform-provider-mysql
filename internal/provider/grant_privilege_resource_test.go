@@ -569,7 +569,34 @@ func TestAccGrantPrivilegeResource_ImportNonExistentRemoteObject(t *testing.T) {
 				ImportState:       true,
 				ImportStateId:     fmt.Sprintf("%s@*@non-existent-user@%%", database),
 				ImportStateVerify: false,
-				ExpectError:       regexp.MustCompile("Failed showing grants"),
+				ExpectError:       regexp.MustCompile("Cannot import non-existent remote object"),
+			},
+		},
+	})
+}
+
+// TestAccGrantPrivilegeResource_RemovedOutOfBand checks that a grant whose target user
+// was dropped outside of Terraform is removed from the state on refresh, instead of
+// failing the refresh with ER_NONEXISTING_GRANT.
+func TestAccGrantPrivilegeResource_RemovedOutOfBand(t *testing.T) {
+	database := fmt.Sprintf("test-db-%04d", rand.Intn(10000))
+	user := NewRandomUser("test-user", "%")
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccGrantPrivilegeResource_Config(t, database, user.GetName(), []string{"SELECT"}, []string{}),
+			},
+			{
+				PreConfig: func() {
+					db := testDatabase()
+					if _, err := db.Exec(fmt.Sprintf("DROP USER '%s'@'%s'", user.GetName(), user.GetHost())); err != nil {
+						t.Fatalf("failed dropping user %s: %v", user.GetID(), err)
+					}
+				},
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
 			},
 		},
 	})

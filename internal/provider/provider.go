@@ -383,6 +383,10 @@ func serverVersion(db *sql.DB) (*version.Version, error) {
 // See https://dev.mysql.com/doc/mysql-errors/8.0/en/server-error-reference.html
 const unknownSystemVariableErrorNumber uint16 = 1193
 
+// nonExistingGrantErrorNumber is ER_NONEXISTING_GRANT, which `SHOW GRANTS FOR` reports
+// when the target user or role does not exist.
+const nonExistingGrantErrorNumber uint16 = 1141
+
 // 0 == not mysql error or not error at all.
 func mysqlErrorNumber(err error) uint16 {
 	if err == nil {

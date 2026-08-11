@@ -225,10 +225,14 @@ func (r *GrantPrivilegeResource) Read(ctx context.Context, req resource.ReadRequ
 
 	rows, err := db.QueryContext(ctx, sql, args...)
 	if err != nil {
+		if mysqlErrorNumber(err) == nonExistingGrantErrorNumber {
+			// The target user or role is gone on the server, so the grant is gone with it.
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError(
 			fmt.Sprintf("Failed showing grants (%s@%s)", userOrRole.Name.ValueString(), userOrRole.Host.ValueString()),
 			err.Error())
-		resp.State.RemoveResource(ctx)
 		return
 	}
 	defer func() { _ = rows.Close() }()
