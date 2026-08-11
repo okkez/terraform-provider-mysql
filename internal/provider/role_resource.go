@@ -2,6 +2,8 @@ package provider
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -114,7 +116,7 @@ func (r *RoleResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	args = append(args, data.Name.ValueString())
 	args = append(args, data.Host.ValueString())
 
-	sql := `
+	query := `
 SELECT
   User
 , Host
@@ -126,16 +128,22 @@ WHERE
   AND authentication_string = ''
   AND password_expired = 'Y'
 `
-	tflog.Info(ctx, sql, map[string]any{"args": args})
+	tflog.Info(ctx, query, map[string]any{"args": args})
 
 	var name, host string
-	if err = db.QueryRowContext(ctx, sql, args...).Scan(&name, &host); err != nil {
-		resp.State.RemoveResource(ctx)
+	if err = db.QueryRowContext(ctx, query, args...).Scan(&name, &host); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// The role is gone on the server, so remove it from the state.
+			resp.State.RemoveResource(ctx)
+			return
+		}
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("Failed reading role (%s@%s)", data.Name.ValueString(), data.Host.ValueString()),
+			err.Error())
 		return
-	} else {
-		data.Name = types.StringValue(name)
-		data.Host = types.StringValue(host)
 	}
+	data.Name = types.StringValue(name)
+	data.Host = types.StringValue(host)
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

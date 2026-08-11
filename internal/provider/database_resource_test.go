@@ -65,6 +65,32 @@ func TestAccDatabaseResource_ImportNonExistentRemoteObject(t *testing.T) {
 	})
 }
 
+// TestAccDatabaseResource_RemovedOutOfBand checks that a database dropped outside of
+// Terraform is removed from the state on refresh, instead of failing the refresh.
+func TestAccDatabaseResource_RemovedOutOfBand(t *testing.T) {
+	name := fmt.Sprintf("test-%04d", rand.Intn(10000))
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccDatabaseResource_CheckDestroy(name),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccDatabaseResource_Config(name),
+			},
+			{
+				PreConfig: func() {
+					db := testDatabase()
+					if _, err := db.Exec(fmt.Sprintf("DROP DATABASE `%s`", name)); err != nil {
+						t.Fatalf("failed dropping database %s: %v", name, err)
+					}
+				},
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+}
+
 func testAccDatabaseResource_Config(name string) string {
 	return fmt.Sprintf(`
 resource "mysql_database" "test" {
