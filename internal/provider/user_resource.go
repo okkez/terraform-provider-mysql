@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-version"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -379,8 +378,7 @@ WHERE
 		var defaultAuthenticationPlugin string
 		err := db.QueryRowContext(ctx, "SELECT @@default_authentication_plugin").Scan(&defaultAuthenticationPlugin)
 		if err != nil {
-			// Check if error is specifically about the unknown variable (MySQL 8.4+)
-			if mysqlErr, ok := err.(*mysql.MySQLError); ok && mysqlErr.Number == 1193 {
+			if mysqlErrorNumber(err) == unknownSystemVariableErrorNumber {
 				// ER_UNKNOWN_SYSTEM_VARIABLE: For MySQL 8.4+ where default_authentication_plugin is removed
 				// Default authentication plugin is caching_sha2_password
 				defaultAuthenticationPlugin = "caching_sha2_password"
