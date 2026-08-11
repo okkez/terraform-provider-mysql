@@ -550,6 +550,14 @@ func TestAccUserResource_CreateFailsOnExistingUser(t *testing.T) {
 	user := NewRandomUser("test-user", "%")
 	t.Logf("%+v\n", user)
 	config := testAccUserResource_Config(t, user.GetName(), "")
+	// The conflicting user is created outside of Terraform below, so it must be dropped
+	// regardless of how resource.Test exits (including via t.Fatal on failure paths).
+	t.Cleanup(func() {
+		db := testDatabase()
+		if _, err := db.Exec(fmt.Sprintf("DROP USER IF EXISTS '%s'@'%s'", user.GetName(), user.GetHost())); err != nil {
+			t.Errorf("failed dropping the conflicting user %s: %v", user.GetID(), err)
+		}
+	})
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -572,11 +580,6 @@ func TestAccUserResource_CreateFailsOnExistingUser(t *testing.T) {
 			},
 		},
 	})
-	// The conflicting user was created outside of Terraform, so drop it here.
-	db := testDatabase()
-	if _, err := db.Exec(fmt.Sprintf("DROP USER IF EXISTS '%s'@'%s'", user.GetName(), user.GetHost())); err != nil {
-		t.Errorf("failed dropping the conflicting user %s: %v", user.GetID(), err)
-	}
 }
 
 // TestAccUserResource_RemovedOutOfBand checks that a user dropped outside of Terraform
