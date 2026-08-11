@@ -283,11 +283,13 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 		_, err = db.ExecContext(ctx, sql, args...)
 		if err != nil {
 			resp.Diagnostics.AddError("Failed creating user", err.Error())
+			return
 		}
 	} else {
 		rows, err := db.QueryContext(ctx, sql, args...)
 		if err != nil {
 			resp.Diagnostics.AddError("Failed creating user", err.Error())
+			return
 		}
 		defer func() { _ = rows.Close() }()
 		for rows.Next() {

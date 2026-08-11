@@ -542,6 +542,43 @@ func TestAccUserResource_ImportNonExistentRemoteObject(t *testing.T) {
 	})
 }
 
+// TestAccUserResource_CreateFailsOnExistingUser checks that a failed create does not
+// record the resource in the state. Before the fix the failed create was recorded as
+// tainted, so the next apply planned a replace and DROPped the pre-existing user,
+// which Terraform does not manage.
+func TestAccUserResource_CreateFailsOnExistingUser(t *testing.T) {
+	user := NewRandomUser("test-user", "%")
+	t.Logf("%+v\n", user)
+	config := testAccUserResource_Config(t, user.GetName(), "")
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				PreConfig: func() {
+					db := testDatabase()
+					if _, err := db.Exec(fmt.Sprintf("CREATE USER '%s'@'%s'", user.GetName(), user.GetHost())); err != nil {
+						t.Fatalf("failed creating the conflicting user %s: %v", user.GetID(), err)
+					}
+				},
+				Config:      config,
+				ExpectError: regexp.MustCompile("Failed creating user"),
+			},
+			// The second apply must fail with the same error. Before the fix it silently
+			// succeeded, because the tainted resource was replaced by DROP + CREATE.
+			{
+				Config:      config,
+				ExpectError: regexp.MustCompile("Failed creating user"),
+			},
+		},
+	})
+	// The conflicting user was created outside of Terraform, so drop it here.
+	db := testDatabase()
+	if _, err := db.Exec(fmt.Sprintf("DROP USER IF EXISTS '%s'@'%s'", user.GetName(), user.GetHost())); err != nil {
+		t.Errorf("failed dropping the conflicting user %s: %v", user.GetID(), err)
+	}
+}
+
 func testAccUserResource_Config(t *testing.T, name, host string) string {
 	source := `
 resource "mysql_user" "test" {
