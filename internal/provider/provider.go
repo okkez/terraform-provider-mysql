@@ -333,10 +333,10 @@ func connectToMySQLInternal(ctx context.Context, conf *MySQLConfiguration) (*One
 	db.SetMaxOpenConns(conf.MaxOpenConns)
 
 	currentVersion, err := afterConnectVersion(ctx, db)
-	tflog.Info(ctx, currentVersion.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed running after connect command: %v", err)
 	}
+	tflog.Info(ctx, currentVersion.String())
 
 	connectionCache[dsn] = &OneConnection{
 		Db:      db,
