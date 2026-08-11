@@ -579,6 +579,33 @@ func TestAccUserResource_CreateFailsOnExistingUser(t *testing.T) {
 	}
 }
 
+// TestAccUserResource_RemovedOutOfBand checks that a user dropped outside of Terraform
+// is removed from the state on refresh, instead of failing the refresh.
+func TestAccUserResource_RemovedOutOfBand(t *testing.T) {
+	user := NewRandomUser("test-user", "%")
+	t.Logf("%+v\n", user)
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		CheckDestroy:             testAccUserResource_CheckDestroy([]UserModel{user}),
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccUserResource_Config(t, user.GetName(), ""),
+			},
+			{
+				PreConfig: func() {
+					db := testDatabase()
+					if _, err := db.Exec(fmt.Sprintf("DROP USER '%s'@'%s'", user.GetName(), user.GetHost())); err != nil {
+						t.Fatalf("failed dropping user %s: %v", user.GetID(), err)
+					}
+				},
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+}
+
 func testAccUserResource_Config(t *testing.T, name, host string) string {
 	source := `
 resource "mysql_user" "test" {

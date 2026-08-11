@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -339,7 +340,7 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	args = append(args, host)
 	args = append(args, user)
 
-	sql := fmt.Sprintf(`
+	query := fmt.Sprintf(`
 SELECT
   Host
 , User
@@ -353,70 +354,74 @@ WHERE
   Host = ?
   AND User = ?
 `, secondaryPasswordExpression(currentVersion))
-	tflog.Info(ctx, sql, map[string]any{"args": args})
+	tflog.Info(ctx, query, map[string]any{"args": args})
 	var _host, _user, plugin, authString, accountLocked string
 	var hasSecondaryPassword bool
-	if err = db.QueryRowContext(ctx, sql, args...).Scan(&_host, &_user, &plugin, &authString, &accountLocked, &hasSecondaryPassword); err != nil {
-		resp.State.RemoveResource(ctx)
+	if err = db.QueryRowContext(ctx, query, args...).Scan(&_host, &_user, &plugin, &authString, &accountLocked, &hasSecondaryPassword); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// The user is gone on the server, so remove it from the state.
+			resp.State.RemoveResource(ctx)
+			return
+		}
+		resp.Diagnostics.AddError(fmt.Sprintf("Failed reading user (%s@%s)", user, host), err.Error())
 		return
-	} else {
-		data.Name = types.StringValue(user)
-		data.Host = types.StringValue(host)
-		data.HasSecondaryPassword = types.BoolValue(hasSecondaryPassword)
-		data.Lock = types.BoolValue(accountLocked == "Y")
+	}
+	data.Name = types.StringValue(user)
+	data.Host = types.StringValue(host)
+	data.HasSecondaryPassword = types.BoolValue(hasSecondaryPassword)
+	data.Lock = types.BoolValue(accountLocked == "Y")
 
-		if data.AuthOption.IsNull() {
-			// https://dev.mysql.com/doc/refman/8.4/en/native-pluggable-authentication.html
-			// The mysql_native_password authentication plugin is deprecated as of MySQL 8.0.34, disabled by default in MySQL 8.4,
-			// and removed as of MySQL 9.0.0.
-			// See https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_default_authentication_plugin
-			var defaultAuthenticationPlugin string
-			err := db.QueryRowContext(ctx, "SELECT @@default_authentication_plugin").Scan(&defaultAuthenticationPlugin)
-			if err != nil {
-				// Check if error is specifically about the unknown variable (MySQL 8.4+)
-				if mysqlErr, ok := err.(*mysql.MySQLError); ok && mysqlErr.Number == 1193 {
-					// ER_UNKNOWN_SYSTEM_VARIABLE: For MySQL 8.4+ where default_authentication_plugin is removed
-					// Default authentication plugin is caching_sha2_password
-					defaultAuthenticationPlugin = "caching_sha2_password"
-					tflog.Info(ctx, fmt.Sprintf("Using hardcoded default plugin for MySQL 8.4+: %s", defaultAuthenticationPlugin))
-				} else {
-					// Other database errors should be surfaced
-					resp.Diagnostics.AddError("Failed to query default authentication plugin", err.Error())
-					return
-				}
+	if data.AuthOption.IsNull() {
+		// https://dev.mysql.com/doc/refman/8.4/en/native-pluggable-authentication.html
+		// The mysql_native_password authentication plugin is deprecated as of MySQL 8.0.34, disabled by default in MySQL 8.4,
+		// and removed as of MySQL 9.0.0.
+		// See https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_default_authentication_plugin
+		var defaultAuthenticationPlugin string
+		err := db.QueryRowContext(ctx, "SELECT @@default_authentication_plugin").Scan(&defaultAuthenticationPlugin)
+		if err != nil {
+			// Check if error is specifically about the unknown variable (MySQL 8.4+)
+			if mysqlErr, ok := err.(*mysql.MySQLError); ok && mysqlErr.Number == 1193 {
+				// ER_UNKNOWN_SYSTEM_VARIABLE: For MySQL 8.4+ where default_authentication_plugin is removed
+				// Default authentication plugin is caching_sha2_password
+				defaultAuthenticationPlugin = "caching_sha2_password"
+				tflog.Info(ctx, fmt.Sprintf("Using hardcoded default plugin for MySQL 8.4+: %s", defaultAuthenticationPlugin))
 			} else {
-				tflog.Info(ctx, fmt.Sprintf("default_authentication_plugin=%s", defaultAuthenticationPlugin))
-			}
-			if plugin != defaultAuthenticationPlugin {
-				attributes := map[string]attr.Value{
-					"plugin":                  types.StringValue(plugin),
-					"auth_string":             types.StringNull(),
-					"random_password":         types.BoolNull(),
-					"retain_current_password": types.BoolNull(),
-					"discard_old_password":    types.BoolNull(),
-				}
-				data.AuthOption = types.ObjectValueMust(AuthOptionModelTypes, attributes)
+				// Other database errors should be surfaced
+				resp.Diagnostics.AddError("Failed to query default authentication plugin", err.Error())
+				return
 			}
 		} else {
-			var authOption AuthOptionModel
-			resp.Diagnostics.Append(data.AuthOption.As(ctx, &authOption, basetypes.ObjectAsOptions{})...)
-
-			attributes := map[string]attr.Value{}
-			attributes["plugin"] = types.StringNull()
-			if !authOption.Plugin.IsNull() {
-				attributes["plugin"] = types.StringValue(plugin)
+			tflog.Info(ctx, fmt.Sprintf("default_authentication_plugin=%s", defaultAuthenticationPlugin))
+		}
+		if plugin != defaultAuthenticationPlugin {
+			attributes := map[string]attr.Value{
+				"plugin":                  types.StringValue(plugin),
+				"auth_string":             types.StringNull(),
+				"random_password":         types.BoolNull(),
+				"retain_current_password": types.BoolNull(),
+				"discard_old_password":    types.BoolNull(),
 			}
-			attributes["auth_string"] = types.StringNull()
-			if !authOption.AuthString.IsNull() {
-				attributes["auth_string"] = authOption.AuthString
-			}
-			attributes["random_password"] = authOption.RandomPassword
-			// The dual password options are write-only options for `ALTER USER`, so keep the configured values.
-			attributes["retain_current_password"] = authOption.RetainCurrentPassword
-			attributes["discard_old_password"] = authOption.DiscardOldPassword
-
 			data.AuthOption = types.ObjectValueMust(AuthOptionModelTypes, attributes)
 		}
+	} else {
+		var authOption AuthOptionModel
+		resp.Diagnostics.Append(data.AuthOption.As(ctx, &authOption, basetypes.ObjectAsOptions{})...)
+
+		attributes := map[string]attr.Value{}
+		attributes["plugin"] = types.StringNull()
+		if !authOption.Plugin.IsNull() {
+			attributes["plugin"] = types.StringValue(plugin)
+		}
+		attributes["auth_string"] = types.StringNull()
+		if !authOption.AuthString.IsNull() {
+			attributes["auth_string"] = authOption.AuthString
+		}
+		attributes["random_password"] = authOption.RandomPassword
+		// The dual password options are write-only options for `ALTER USER`, so keep the configured values.
+		attributes["retain_current_password"] = authOption.RetainCurrentPassword
+		attributes["discard_old_password"] = authOption.DiscardOldPassword
+
+		data.AuthOption = types.ObjectValueMust(AuthOptionModelTypes, attributes)
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
