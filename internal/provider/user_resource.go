@@ -245,6 +245,9 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 	if !data.AuthOption.IsNull() {
 		var authOption *AuthOptionModel
 		resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("auth_option"), &authOption)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 		if authOption.RetainCurrentPassword.ValueBool() || authOption.DiscardOldPassword.ValueBool() {
 			resp.Diagnostics.AddWarning(
 				"Ignored dual password options on creating user",
@@ -452,6 +455,9 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	if !data.AuthOption.IsNull() {
 		var authOption *AuthOptionModel
 		resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("auth_option"), &authOption)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 		discardOldPassword = authOption.DiscardOldPassword.ValueBool()
 		// `ValidateConfig` sees an unknown value as false, so repeat the check on the resolved
 		// values. Without it the statement would retain the current password and the following
