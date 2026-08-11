@@ -123,7 +123,12 @@ func (r *DefaultRolesResource) Read(ctx context.Context, req resource.ReadReques
 
 	user := data.User.ValueString()
 	host := data.Host.ValueString()
-	if !utils.UserExists(ctx, db, user, host) {
+	exists, err := utils.UserExists(ctx, db, user, host)
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("Failed checking whether the user exists (%s@%s)", user, host), err.Error())
+		return
+	}
+	if !exists {
 		resp.State.RemoveResource(ctx)
 		return
 	}

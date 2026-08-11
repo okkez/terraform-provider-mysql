@@ -151,7 +151,14 @@ func (r *GrantRoleResource) Read(ctx context.Context, req resource.ReadRequest, 
 	args = append(args, userOrRole.Name.ValueString())
 	args = append(args, userOrRole.Host.ValueString())
 
-	if !utils.UserExists(ctx, db, userOrRole.Name.ValueString(), userOrRole.Host.ValueString()) {
+	exists, err := utils.UserExists(ctx, db, userOrRole.Name.ValueString(), userOrRole.Host.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("Failed checking whether the user exists (%s@%s)", userOrRole.Name.ValueString(), userOrRole.Host.ValueString()),
+			err.Error())
+		return
+	}
+	if !exists {
 		resp.State.RemoveResource(ctx)
 		return
 	}
