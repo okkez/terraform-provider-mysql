@@ -404,6 +404,9 @@ WHERE
 	} else {
 		var authOption AuthOptionModel
 		resp.Diagnostics.Append(data.AuthOption.As(ctx, &authOption, basetypes.ObjectAsOptions{})...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 
 		attributes := map[string]attr.Value{}
 		attributes["plugin"] = types.StringNull()
