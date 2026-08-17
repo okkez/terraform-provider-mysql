@@ -279,6 +279,12 @@ func (r *GrantPrivilegeResource) Read(ctx context.Context, req resource.ReadRequ
 			privileges = append(privileges, types.ObjectValueMust(PrivlilegeTypeModelTypes, privilegeTypeModelValue))
 		}
 	}
+	// `rows.Next` returns false on an iteration failure as well, so check `rows.Err`
+	// before writing a possibly partial result to the state.
+	if err := rows.Err(); err != nil {
+		resp.Diagnostics.AddError("Failed reading MySQL rows", err.Error())
+		return
+	}
 
 	tflog.Info(ctx, fmt.Sprintf("\nprivileges=%+v\n", privileges))
 
@@ -655,6 +661,11 @@ func checkGrantOption(ctx context.Context, db *sql.DB, privilegeLevel PrivilegeL
 		if grantPrivilege.Match(database, table, userName, hostName) && grantPrivilege.GrantOption {
 			return true, nil
 		}
+	}
+	// `rows.Next` returns false on an iteration failure as well, so report it instead
+	// of answering "no GRANT OPTION" for a transient error.
+	if err := rows.Err(); err != nil {
+		return false, err
 	}
 
 	return false, nil

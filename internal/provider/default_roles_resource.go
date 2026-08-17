@@ -166,6 +166,12 @@ WHERE
 		roleValues["host"] = types.StringValue(roleHost)
 		defaultRoles = append(defaultRoles, types.ObjectValueMust(RoleTypes, roleValues))
 	}
+	// `rows.Next` returns false on an iteration failure as well, so check `rows.Err`
+	// before writing a possibly partial result to the state.
+	if err := rows.Err(); err != nil {
+		resp.Diagnostics.AddError("Failed reading MySQL rows", err.Error())
+		return
+	}
 	data.DefaultRoles = types.SetValueMust(types.ObjectType{AttrTypes: RoleTypes}, defaultRoles)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

@@ -202,6 +202,12 @@ WHERE
 		currentRoles = append(currentRoles, types.ObjectValueMust(RoleTypes, attributes))
 		data.AdminOption = types.BoolValue(adminOption == "Y")
 	}
+	// `rows.Next` returns false on an iteration failure as well, so check `rows.Err`
+	// before writing a possibly partial result to the state.
+	if err := rows.Err(); err != nil {
+		resp.Diagnostics.AddError("Failed reading MySQL rows", err.Error())
+		return
+	}
 	data.Roles = types.SetValueMust(types.ObjectType{AttrTypes: RoleTypes}, currentRoles)
 
 	// Save updated data into Terraform state
