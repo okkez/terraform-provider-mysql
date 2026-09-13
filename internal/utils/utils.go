@@ -4,9 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"os"
-	"strconv"
-
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 func GetenvWithDefault(key, defaultValue string) string {
@@ -17,16 +14,12 @@ func GetenvWithDefault(key, defaultValue string) string {
 	}
 }
 
-func UserExists(ctx context.Context, db *sql.DB, user, host string) bool {
-	var count string
+// UserExists reports whether the user exists on the server. The error is returned as is,
+// so that the caller can distinguish a missing user from a failed query.
+func UserExists(ctx context.Context, db *sql.DB, user, host string) (bool, error) {
+	var count int64
 	if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM mysql.user WHERE User = ? AND Host = ?", user, host).Scan(&count); err != nil {
-		tflog.Error(ctx, err.Error())
-		return false
+		return false, err
 	}
-	if c, err := strconv.ParseInt(count, 10, 64); err != nil {
-		tflog.Error(ctx, err.Error())
-		return false
-	} else {
-		return c > 0
-	}
+	return count > 0, nil
 }

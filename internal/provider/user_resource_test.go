@@ -542,6 +542,73 @@ func TestAccUserResource_ImportNonExistentRemoteObject(t *testing.T) {
 	})
 }
 
+// TestAccUserResource_CreateFailsOnExistingUser checks that a failed create does not
+// record the resource in the state. Before the fix the failed create was recorded as
+// tainted, so the next apply planned a replace and DROPped the pre-existing user,
+// which Terraform does not manage.
+func TestAccUserResource_CreateFailsOnExistingUser(t *testing.T) {
+	user := NewRandomUser("test-user", "%")
+	t.Logf("%+v\n", user)
+	config := testAccUserResource_Config(t, user.GetName(), "")
+	// The conflicting user is created outside of Terraform below, so it must be dropped
+	// regardless of how resource.Test exits (including via t.Fatal on failure paths).
+	t.Cleanup(func() {
+		db := testDatabase()
+		if _, err := db.Exec(fmt.Sprintf("DROP USER IF EXISTS '%s'@'%s'", user.GetName(), user.GetHost())); err != nil {
+			t.Errorf("failed dropping the conflicting user %s: %v", user.GetID(), err)
+		}
+	})
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				PreConfig: func() {
+					db := testDatabase()
+					if _, err := db.Exec(fmt.Sprintf("CREATE USER '%s'@'%s'", user.GetName(), user.GetHost())); err != nil {
+						t.Fatalf("failed creating the conflicting user %s: %v", user.GetID(), err)
+					}
+				},
+				Config:      config,
+				ExpectError: regexp.MustCompile("Failed creating user"),
+			},
+			// The second apply must fail with the same error. Before the fix it silently
+			// succeeded, because the tainted resource was replaced by DROP + CREATE.
+			{
+				Config:      config,
+				ExpectError: regexp.MustCompile("Failed creating user"),
+			},
+		},
+	})
+}
+
+// TestAccUserResource_RemovedOutOfBand checks that a user dropped outside of Terraform
+// is removed from the state on refresh, instead of failing the refresh.
+func TestAccUserResource_RemovedOutOfBand(t *testing.T) {
+	user := NewRandomUser("test-user", "%")
+	t.Logf("%+v\n", user)
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		CheckDestroy:             testAccUserResource_CheckDestroy([]UserModel{user}),
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccUserResource_Config(t, user.GetName(), ""),
+			},
+			{
+				PreConfig: func() {
+					db := testDatabase()
+					if _, err := db.Exec(fmt.Sprintf("DROP USER '%s'@'%s'", user.GetName(), user.GetHost())); err != nil {
+						t.Fatalf("failed dropping user %s: %v", user.GetID(), err)
+					}
+				},
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+}
+
 func testAccUserResource_Config(t *testing.T, name, host string) string {
 	source := `
 resource "mysql_user" "test" {

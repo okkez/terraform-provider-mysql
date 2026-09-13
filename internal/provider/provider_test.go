@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -52,5 +53,18 @@ func testMySQLConfig() *MySQLConfiguration {
 		MaxConnLifetime:     time.Duration(8*60*60) * time.Second,
 		MaxOpenConns:        5,
 		ConnectRetryTimeout: time.Duration(300) * time.Second,
+	}
+}
+
+func TestMysqlErrorNumber(t *testing.T) {
+	t.Parallel()
+	if got := mysqlErrorNumber(&mysql.MySQLError{Number: 1193}); got != unknownSystemVariableErrorNumber {
+		t.Errorf("mysqlErrorNumber(MySQLError 1193): got %d, want %d", got, unknownSystemVariableErrorNumber)
+	}
+	if got := mysqlErrorNumber(fmt.Errorf("not a mysql error")); got != 0 {
+		t.Errorf("mysqlErrorNumber(non-MySQL error): got %d, want 0", got)
+	}
+	if got := mysqlErrorNumber(nil); got != 0 {
+		t.Errorf("mysqlErrorNumber(nil): got %d, want 0", got)
 	}
 }

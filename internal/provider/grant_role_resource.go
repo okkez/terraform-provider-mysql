@@ -151,7 +151,14 @@ func (r *GrantRoleResource) Read(ctx context.Context, req resource.ReadRequest, 
 	args = append(args, userOrRole.Name.ValueString())
 	args = append(args, userOrRole.Host.ValueString())
 
-	if !utils.UserExists(ctx, db, userOrRole.Name.ValueString(), userOrRole.Host.ValueString()) {
+	exists, err := utils.UserExists(ctx, db, userOrRole.Name.ValueString(), userOrRole.Host.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("Failed checking whether the user exists (%s@%s)", userOrRole.Name.ValueString(), userOrRole.Host.ValueString()),
+			err.Error())
+		return
+	}
+	if !exists {
 		resp.State.RemoveResource(ctx)
 		return
 	}
@@ -194,6 +201,12 @@ WHERE
 		}
 		currentRoles = append(currentRoles, types.ObjectValueMust(RoleTypes, attributes))
 		data.AdminOption = types.BoolValue(adminOption == "Y")
+	}
+	// `rows.Next` returns false on an iteration failure as well, so check `rows.Err`
+	// before writing a possibly partial result to the state.
+	if err := rows.Err(); err != nil {
+		resp.Diagnostics.AddError("Failed reading MySQL rows", err.Error())
+		return
 	}
 	data.Roles = types.SetValueMust(types.ObjectType{AttrTypes: RoleTypes}, currentRoles)
 

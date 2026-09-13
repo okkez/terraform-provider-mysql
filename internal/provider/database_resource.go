@@ -2,6 +2,8 @@ package provider
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -136,11 +138,15 @@ func (r *databaseResource) Read(ctx context.Context, req resource.ReadRequest, r
 	}
 
 	var characterSet, collation string
-	sql := "SELECT DEFAULT_CHARACTER_SET_NAME, DEFAULT_COLLATION_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?"
-	err = db.QueryRowContext(ctx, sql, data.Id.ValueString()).Scan(&characterSet, &collation)
+	query := "SELECT DEFAULT_CHARACTER_SET_NAME, DEFAULT_COLLATION_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?"
+	err = db.QueryRowContext(ctx, query, data.Id.ValueString()).Scan(&characterSet, &collation)
 	if err != nil {
-		tflog.Error(ctx, err.Error(), map[string]any{"sql": sql, "args": []interface{}{data.Id.ValueString()}})
-		resp.State.RemoveResource(ctx)
+		if errors.Is(err, sql.ErrNoRows) {
+			// The database is gone on the server, so remove it from the state.
+			resp.State.RemoveResource(ctx)
+			return
+		}
+		resp.Diagnostics.AddError(fmt.Sprintf("Failed reading database (%s)", data.Id.ValueString()), err.Error())
 		return
 	}
 

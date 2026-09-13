@@ -333,10 +333,10 @@ func connectToMySQLInternal(ctx context.Context, conf *MySQLConfiguration) (*One
 	db.SetMaxOpenConns(conf.MaxOpenConns)
 
 	currentVersion, err := afterConnectVersion(ctx, db)
-	tflog.Info(ctx, currentVersion.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed running after connect command: %v", err)
 	}
+	tflog.Info(ctx, currentVersion.String())
 
 	connectionCache[dsn] = &OneConnection{
 		Db:      db,
@@ -378,6 +378,14 @@ func serverVersion(db *sql.DB) (*version.Version, error) {
 	versionString = strings.SplitN(versionString, ":", 2)[0]
 	return version.NewVersion(versionString)
 }
+
+// unknownSystemVariableErrorNumber is ER_UNKNOWN_SYSTEM_VARIABLE.
+// See https://dev.mysql.com/doc/mysql-errors/8.0/en/server-error-reference.html
+const unknownSystemVariableErrorNumber uint16 = 1193
+
+// nonExistingGrantErrorNumber is ER_NONEXISTING_GRANT, which `SHOW GRANTS FOR` reports
+// when the target user or role does not exist.
+const nonExistingGrantErrorNumber uint16 = 1141
 
 // 0 == not mysql error or not error at all.
 func mysqlErrorNumber(err error) uint16 {

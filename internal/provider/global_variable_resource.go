@@ -128,8 +128,14 @@ func (r *GlobalVariableResource) Read(ctx context.Context, req resource.ReadRequ
 	var value string
 	err = db.QueryRowContext(ctx, sql).Scan(&value)
 	if err != nil {
-		resp.Diagnostics.AddWarning("Failed scanning MySQL rows", err.Error())
-		resp.State.RemoveResource(ctx)
+		if mysqlErrorNumber(err) == unknownSystemVariableErrorNumber {
+			// The variable does not exist on the server (e.g. a plugin variable after
+			// the plugin was uninstalled), so remove it from the state.
+			resp.Diagnostics.AddWarning(fmt.Sprintf("Unknown system variable (%s)", name), err.Error())
+			resp.State.RemoveResource(ctx)
+			return
+		}
+		resp.Diagnostics.AddError(fmt.Sprintf("Failed reading global variable (%s)", name), err.Error())
 		return
 	}
 	data.ID = types.StringValue(name)

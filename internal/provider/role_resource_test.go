@@ -65,6 +65,32 @@ func TestAccRoleResource_ImportNonExistentRemoteObject(t *testing.T) {
 	})
 }
 
+// TestAccRoleResource_RemovedOutOfBand checks that a role dropped outside of Terraform
+// is removed from the state on refresh, instead of failing the refresh.
+func TestAccRoleResource_RemovedOutOfBand(t *testing.T) {
+	role := NewRandomRole("test-role", "%")
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		CheckDestroy:             testAccRoleResource_CheckDestroy([]RoleModel{role}),
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRoleResource_Config(role.GetName()),
+			},
+			{
+				PreConfig: func() {
+					db := testDatabase()
+					if _, err := db.Exec(fmt.Sprintf("DROP ROLE '%s'@'%s'", role.GetName(), role.GetHost())); err != nil {
+						t.Fatalf("failed dropping role %s: %v", role.GetID(), err)
+					}
+				},
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+}
+
 func testAccRoleResource_Config(name string) string {
 	return fmt.Sprintf(`
 resource "mysql_role" "test" {

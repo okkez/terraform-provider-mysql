@@ -123,7 +123,12 @@ func (r *DefaultRolesResource) Read(ctx context.Context, req resource.ReadReques
 
 	user := data.User.ValueString()
 	host := data.Host.ValueString()
-	if !utils.UserExists(ctx, db, user, host) {
+	exists, err := utils.UserExists(ctx, db, user, host)
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("Failed checking whether the user exists (%s@%s)", user, host), err.Error())
+		return
+	}
+	if !exists {
 		resp.State.RemoveResource(ctx)
 		return
 	}
@@ -160,6 +165,12 @@ WHERE
 		roleValues["name"] = types.StringValue(roleName)
 		roleValues["host"] = types.StringValue(roleHost)
 		defaultRoles = append(defaultRoles, types.ObjectValueMust(RoleTypes, roleValues))
+	}
+	// `rows.Next` returns false on an iteration failure as well, so check `rows.Err`
+	// before writing a possibly partial result to the state.
+	if err := rows.Err(); err != nil {
+		resp.Diagnostics.AddError("Failed reading MySQL rows", err.Error())
+		return
 	}
 	data.DefaultRoles = types.SetValueMust(types.ObjectType{AttrTypes: RoleTypes}, defaultRoles)
 
