@@ -1,3 +1,8 @@
+## [v0.4.4](https://github.com/okkez/terraform-provider-mysql/compare/v0.4.3...v0.4.4) - 2026-10-05
+
+### Dependencies
+- chore(deps): bump Songmu/tagpr from 1.20.3 to 1.21.1 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/330
+
 ## [v0.4.3](https://github.com/okkez/terraform-provider-mysql/compare/v0.4.2...v0.4.3) - 2026-09-13
 
 ### Dependencies
