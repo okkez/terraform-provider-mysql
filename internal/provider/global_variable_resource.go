@@ -102,13 +102,10 @@ func (r *GlobalVariableResource) Create(ctx context.Context, req resource.Create
 
 	name := data.Name.ValueString()
 	value := data.Value.ValueString()
-	err = setGlobalVariable(ctx, db, name, value)
-	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("Failed setting global variable (%s)", name), err.Error())
+	resp.Diagnostics.Append(applyGlobalVariable(ctx, db, resp.Private, name, value)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	resp.Diagnostics.Append(saveAppliedGlobalVariable(ctx, db, resp.Private, name, value)...)
 
 	data.ID = types.StringValue(name)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -176,13 +173,10 @@ func (r *GlobalVariableResource) Update(ctx context.Context, req resource.Update
 
 	name := data.Name.ValueString()
 	value := data.Value.ValueString()
-	err = setGlobalVariable(ctx, db, name, value)
-	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("Failed setting global variable (%s)", name), err.Error())
+	resp.Diagnostics.Append(applyGlobalVariable(ctx, db, resp.Private, name, value)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	resp.Diagnostics.Append(saveAppliedGlobalVariable(ctx, db, resp.Private, name, value)...)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -249,11 +243,16 @@ func readGlobalVariable(ctx context.Context, db *sql.DB, name string) (string, e
 // after the configured value was applied, which is the form MySQL normalizes the value to.
 const appliedValuePrivateKey = "applied_value"
 
-// saveAppliedGlobalVariable reads back the value MySQL stored for the configured value and
-// saves it in the private state, so that Read can tell the normalized form of the configured
-// value from a change made outside of Terraform.
-func saveAppliedGlobalVariable(ctx context.Context, db *sql.DB, private privateStateSetter, name, configuredValue string) diag.Diagnostics {
+// applyGlobalVariable sets the configured value and saves the value MySQL stored for it in the
+// private state, so that Read can tell the form MySQL normalizes the configured value to from
+// a change made outside of Terraform. Create and Update must both go through it.
+func applyGlobalVariable(ctx context.Context, db *sql.DB, private privateStateSetter, name, configuredValue string) diag.Diagnostics {
 	var diags diag.Diagnostics
+
+	if err := setGlobalVariable(ctx, db, name, configuredValue); err != nil {
+		diags.AddError(fmt.Sprintf("Failed setting global variable (%s)", name), err.Error())
+		return diags
+	}
 
 	appliedValue, err := readGlobalVariable(ctx, db, name)
 	if err != nil {
@@ -264,14 +263,21 @@ func saveAppliedGlobalVariable(ctx context.Context, db *sql.DB, private privateS
 		return diags
 	}
 
+	diags.Append(warnIfStoredDifferently(name, configuredValue, appliedValue)...)
+	diags.Append(savePrivateString(ctx, private, appliedValuePrivateKey, appliedValue)...)
+	return diags
+}
+
+// warnIfStoredDifferently warns when MySQL stored a value which does not look like the
+// configured one, such as a value capped at its maximum, as the state keeps the configured one.
+func warnIfStoredDifferently(name, configuredValue, appliedValue string) diag.Diagnostics {
+	var diags diag.Diagnostics
 	if !globalVariableValueEquivalent(configuredValue, appliedValue) {
 		diags.AddWarning(
 			fmt.Sprintf("MySQL stored a different value for global variable (%s)", name),
 			fmt.Sprintf("MySQL stored %q for the configured value %q, for example because the value is out of range. "+
 				"Terraform keeps the configured value in the state.", appliedValue, configuredValue))
 	}
-
-	diags.Append(savePrivateString(ctx, private, appliedValuePrivateKey, appliedValue)...)
 	return diags
 }
 
