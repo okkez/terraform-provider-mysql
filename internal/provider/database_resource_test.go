@@ -152,6 +152,8 @@ func TestAccDatabaseResource_UpdateCharsetKeepsCollation(t *testing.T) {
 			{
 				Config: testAccDatabaseResource_ConfigFull(name, "utf8mb4", "utf8mb4_bin"),
 			},
+			// Only the notation of the character set changes, which plan still reports as a
+			// change, so Update issues `ALTER DATABASE ... CHARACTER SET` with the same collation.
 			{
 				Config: testAccDatabaseResource_ConfigFull(name, "UTF8MB4", "utf8mb4_bin"),
 				Check:  testAccDatabaseResource_CheckCollation(name, "utf8mb4_bin"),
