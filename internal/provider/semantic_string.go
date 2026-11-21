@@ -161,8 +161,9 @@ func NewPrivTypeValue(value string) PrivTypeValue {
 	return newSemanticStringValue[privTypeEquivalence](value)
 }
 
+// normalizePrivType expects an uppercase name: the configuration only accepts one, and Read
+// uppercases what `SHOW GRANTS` reports.
 func normalizePrivType(privType string) string {
-	privType = strings.ToUpper(privType)
 	if privType == "ALL" {
 		return "ALL PRIVILEGES"
 	}
