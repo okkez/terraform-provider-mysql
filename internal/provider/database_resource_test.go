@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
@@ -130,20 +129,12 @@ func TestAccDatabaseResource_DetectsOutOfBandCharsetChange(t *testing.T) {
 			{
 				Config: testAccDatabaseResource_ConfigFull(name, "UTF8MB4", "utf8mb4_bin"),
 			},
-			{
-				PreConfig: func() {
-					db := testDatabase()
-					if _, err := db.Exec(fmt.Sprintf("ALTER DATABASE `%s` CHARACTER SET latin1 COLLATE latin1_bin", name)); err != nil {
-						t.Fatalf("failed altering database %s: %v", name, err)
-					}
-				},
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				// `ExpectNonEmptyPlan` only allows a non-empty plan, so require one explicitly.
-				RefreshPlanChecks: resource.RefreshPlanChecks{
-					PostRefresh: []plancheck.PlanCheck{plancheck.ExpectNonEmptyPlan()},
-				},
-			},
+			testAccStepExpectOutOfBandChange(func() {
+				db := testDatabase()
+				if _, err := db.Exec(fmt.Sprintf("ALTER DATABASE `%s` CHARACTER SET latin1 COLLATE latin1_bin", name)); err != nil {
+					t.Fatalf("failed altering database %s: %v", name, err)
+				}
+			}),
 		},
 	})
 }

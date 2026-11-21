@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
@@ -103,23 +102,12 @@ func TestAccGlobalVariableResource_DetectsRevertToAppliedValue(t *testing.T) {
 			{
 				Config: testAccGlobalVariableResourceConfig(name, "500"),
 			},
-			{
-				PreConfig:          setOutOfBand("1000"),
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-			},
+			testAccStepExpectOutOfBandChange(setOutOfBand("1000")),
 			// The configuration follows the server, so apply has nothing to do.
 			{
 				Config: testAccGlobalVariableResourceConfig(name, "1000"),
 			},
-			{
-				PreConfig:          setOutOfBand("500"),
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				RefreshPlanChecks: resource.RefreshPlanChecks{
-					PostRefresh: []plancheck.PlanCheck{plancheck.ExpectNonEmptyPlan()},
-				},
-			},
+			testAccStepExpectOutOfBandChange(setOutOfBand("500")),
 		},
 	})
 }
@@ -150,20 +138,12 @@ func TestAccGlobalVariableResource_DetectsOutOfBandChange(t *testing.T) {
 					{
 						Config: testAccGlobalVariableResourceConfig(c.name, c.value),
 					},
-					{
-						PreConfig: func() {
-							db := testDatabase()
-							if _, err := db.Exec(fmt.Sprintf("SET GLOBAL %s = %s", c.name, c.outOfBandLiteral)); err != nil {
-								t.Fatalf("failed setting %s: %v", c.name, err)
-							}
-						},
-						RefreshState:       true,
-						ExpectNonEmptyPlan: true,
-						// `ExpectNonEmptyPlan` only allows a non-empty plan, so require one explicitly.
-						RefreshPlanChecks: resource.RefreshPlanChecks{
-							PostRefresh: []plancheck.PlanCheck{plancheck.ExpectNonEmptyPlan()},
-						},
-					},
+					testAccStepExpectOutOfBandChange(func() {
+						db := testDatabase()
+						if _, err := db.Exec(fmt.Sprintf("SET GLOBAL %s = %s", c.name, c.outOfBandLiteral)); err != nil {
+							t.Fatalf("failed setting %s: %v", c.name, err)
+						}
+					}),
 				},
 			})
 		})
