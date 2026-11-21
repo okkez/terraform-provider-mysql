@@ -59,6 +59,8 @@ func TestAccGlobalVariableResource_EquivalentNotation(t *testing.T) {
 		"boolean_on":     {"log_bin_trust_function_creators", "ON"},
 		"enum_lowercase": {"binlog_row_image", "minimal"},
 		"set_order":      {"sql_mode", "STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION,ONLY_FULL_GROUP_BY"},
+		// MySQL caps the value at 100000. Apply warns about it instead of leaving a diff.
+		"clamped": {"max_connections", "1000000"},
 	}
 	for caseName, c := range cases {
 		t.Run(caseName, func(t *testing.T) {
@@ -79,28 +81,64 @@ func TestAccGlobalVariableResource_EquivalentNotation(t *testing.T) {
 // outside of Terraform is still reported, even with a value written differently from
 // what MySQL reports.
 func TestAccGlobalVariableResource_DetectsOutOfBandChange(t *testing.T) {
-	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheck(t) },
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccGlobalVariableResourceConfig("log_bin_trust_function_creators", "ON"),
-			},
-			{
-				PreConfig: func() {
-					db := testDatabase()
-					if _, err := db.Exec("SET GLOBAL log_bin_trust_function_creators = 0"); err != nil {
-						t.Fatalf("failed setting log_bin_trust_function_creators: %v", err)
-					}
+	// outOfBandLiteral is written into `SET GLOBAL` as is, because a placeholder passes a
+	// string, which a boolean variable does not accept as `0`.
+	cases := map[string]struct {
+		name, value, outOfBandLiteral string
+	}{
+		"boolean": {"log_bin_trust_function_creators", "ON", "0"},
+		// Role names are case-sensitive, and the order of a list is kept as written.
+		"letter_case": {"mandatory_roles", "AppReader", "'appreader'"},
+		"list_order":  {"mandatory_roles", "role_a,role_b", "'role_b,role_a'"},
+	}
+	for caseName, c := range cases {
+		t.Run(caseName, func(t *testing.T) {
+			resource.Test(t, resource.TestCase{
+				PreCheck:                 func() { testAccPreCheck(t) },
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Steps: []resource.TestStep{
+					{
+						Config: testAccGlobalVariableResourceConfig(c.name, c.value),
+					},
+					{
+						PreConfig: func() {
+							db := testDatabase()
+							if _, err := db.Exec(fmt.Sprintf("SET GLOBAL %s = %s", c.name, c.outOfBandLiteral)); err != nil {
+								t.Fatalf("failed setting %s: %v", c.name, err)
+							}
+						},
+						RefreshState:       true,
+						ExpectNonEmptyPlan: true,
+						// `ExpectNonEmptyPlan` only allows a non-empty plan, so require one explicitly.
+						RefreshPlanChecks: resource.RefreshPlanChecks{
+							PostRefresh: []plancheck.PlanCheck{plancheck.ExpectNonEmptyPlan()},
+						},
+					},
 				},
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				// `ExpectNonEmptyPlan` only allows a non-empty plan, so require one explicitly.
-				RefreshPlanChecks: resource.RefreshPlanChecks{
-					PostRefresh: []plancheck.PlanCheck{plancheck.ExpectNonEmptyPlan()},
-				},
-			},
-		},
+			})
+		})
+	}
+}
+
+// TestGlobalVariableValueEquivalent checks the guess deciding whether to warn about a value
+// MySQL stored differently from the configured one.
+func TestGlobalVariableValueEquivalent(t *testing.T) {
+	runEquivalenceCases(t, "globalVariableValueEquivalent", globalVariableValueEquivalent, []equivalenceCase{
+		{"1", "ON", true},
+		{"1", "on", true},
+		{"1", "TRUE", true},
+		{"0", "OFF", true},
+		{"0", "false", true},
+		{"1", "OFF", false},
+		{"0", "ON", false},
+		{"MINIMAL", "minimal", true},
+		{"ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION", "STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION,ONLY_FULL_GROUP_BY", true},
+		{"STRICT_TRANS_TABLES", "STRICT_TRANS_TABLES,ONLY_FULL_GROUP_BY", false},
+		{"100000", "1000000", false},
+		{"2", "2", true},
+		{"", "", true},
+		{"/var/lib/A", "/var/lib/a", false},
+		{"a.b", "A.B", false},
 	})
 }
 

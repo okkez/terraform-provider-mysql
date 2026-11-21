@@ -31,26 +31,6 @@ func TestCharsetNameEquivalent(t *testing.T) {
 	})
 }
 
-func TestGlobalVariableValueEquivalent(t *testing.T) {
-	runEquivalenceCases(t, "globalVariableValueEquivalent", globalVariableValueEquivalent, []equivalenceCase{
-		{"1", "ON", true},
-		{"1", "on", true},
-		{"1", "TRUE", true},
-		{"0", "OFF", true},
-		{"0", "false", true},
-		{"1", "OFF", false},
-		{"0", "ON", false},
-		{"MINIMAL", "minimal", true},
-		{"ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION", "STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION,ONLY_FULL_GROUP_BY", true},
-		{"STRICT_TRANS_TABLES", "STRICT_TRANS_TABLES,ONLY_FULL_GROUP_BY", false},
-		{"100000", "1000000", false},
-		{"2", "2", true},
-		{"", "", true},
-		{"/var/lib/A", "/var/lib/a", false},
-		{"a.b", "A.B", false},
-	})
-}
-
 func TestPrivTypeEquivalent(t *testing.T) {
 	runEquivalenceCases(t, "privTypeEquivalent", privTypeEquivalent, []equivalenceCase{
 		{"ALL PRIVILEGES", "ALL", true},

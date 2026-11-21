@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -137,72 +136,6 @@ func normalizeCharsetName(name string) string {
 		return "utf8mb3_" + rest
 	}
 	return name
-}
-
-// Global variable values.
-
-type globalVariableValueEquivalence struct{}
-
-func (globalVariableValueEquivalence) typeName() string { return "GlobalVariableValueType" }
-func (globalVariableValueEquivalence) equivalent(a, b string) bool {
-	return globalVariableValueEquivalent(a, b)
-}
-
-type (
-	GlobalVariableValueType  = semanticStringType[globalVariableValueEquivalence]
-	GlobalVariableValueValue = semanticStringValue[globalVariableValueEquivalence]
-)
-
-func NewGlobalVariableValueValue(value string) GlobalVariableValueValue {
-	return GlobalVariableValueValue{StringValue: basetypes.NewStringValue(value)}
-}
-
-// wordListPattern matches a value made only of words separated by commas, such as an enum
-// value or `sql_mode`. Only such values are compared ignoring letter case and order, so that
-// case-sensitive values such as paths are never treated as equal.
-var wordListPattern = regexp.MustCompile(`^[A-Za-z0-9_,]*$`)
-
-// globalVariableValueEquivalent treats `ON`/`TRUE` as `1` and `OFF`/`FALSE` as `0`, which is
-// what MySQL reports for boolean variables, and compares comma separated words ignoring
-// letter case and order, as MySQL normalizes both for enum and set variables.
-func globalVariableValueEquivalent(a, b string) bool {
-	if a == b {
-		return true
-	}
-	if normalizeBooleanValue(a) == normalizeBooleanValue(b) {
-		return true
-	}
-	if !wordListPattern.MatchString(a) || !wordListPattern.MatchString(b) {
-		return false
-	}
-	wordsA, wordsB := upperWordSet(a), upperWordSet(b)
-	if len(wordsA) != len(wordsB) {
-		return false
-	}
-	for word := range wordsA {
-		if _, ok := wordsB[word]; !ok {
-			return false
-		}
-	}
-	return true
-}
-
-func normalizeBooleanValue(value string) string {
-	switch strings.ToUpper(value) {
-	case "ON", "TRUE":
-		return "1"
-	case "OFF", "FALSE":
-		return "0"
-	}
-	return value
-}
-
-func upperWordSet(value string) map[string]struct{} {
-	words := map[string]struct{}{}
-	for _, word := range strings.Split(strings.ToUpper(value), ",") {
-		words[word] = struct{}{}
-	}
-	return words
 }
 
 // Privilege names.

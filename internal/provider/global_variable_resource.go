@@ -4,8 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strconv"
+	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -33,9 +36,9 @@ type GlobalVariableResource struct {
 
 // GlobalVariableResourceModel describes the resource data model.
 type GlobalVariableResourceModel struct {
-	ID    types.String             `tfsdk:"id"`
-	Name  types.String             `tfsdk:"name"`
-	Value GlobalVariableValueValue `tfsdk:"value"`
+	ID    types.String `tfsdk:"id"`
+	Name  types.String `tfsdk:"name"`
+	Value types.String `tfsdk:"value"`
 }
 
 func (r *GlobalVariableResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -64,7 +67,6 @@ func (r *GlobalVariableResource) Schema(ctx context.Context, req resource.Schema
 			},
 			"value": schema.StringAttribute{
 				MarkdownDescription: "Global variable value",
-				CustomType:          GlobalVariableValueType{},
 				Required:            true,
 			},
 		},
@@ -105,6 +107,8 @@ func (r *GlobalVariableResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
+	resp.Diagnostics.Append(saveAppliedGlobalVariable(ctx, db, resp.Private, name, value)...)
+
 	data.ID = types.StringValue(name)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -123,11 +127,7 @@ func (r *GlobalVariableResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	name := data.Name.ValueString()
-	sql := fmt.Sprintf(`SELECT @@GLOBAL.%s`, name)
-	tflog.Info(ctx, sql)
-
-	var value string
-	err = db.QueryRowContext(ctx, sql).Scan(&value)
+	value, err := readGlobalVariable(ctx, db, name)
 	if err != nil {
 		if mysqlErrorNumber(err) == unknownSystemVariableErrorNumber {
 			// The variable does not exist on the server (e.g. a plugin variable after
@@ -141,7 +141,18 @@ func (r *GlobalVariableResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 	data.ID = types.StringValue(name)
 	data.Name = types.StringValue(name)
-	data.Value = NewGlobalVariableValueValue(value)
+
+	// MySQL reports the value in its own form, such as `1` for `ON`. While the server still has
+	// the value it stored on apply, keep the configured form in the state. Otherwise the value
+	// was changed outside of Terraform, so report it as it is.
+	appliedValue, saved, diags := loadPrivateString(ctx, req.Private, appliedValuePrivateKey)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if !saved || value != appliedValue {
+		data.Value = types.StringValue(value)
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -166,6 +177,8 @@ func (r *GlobalVariableResource) Update(ctx context.Context, req resource.Update
 		resp.Diagnostics.AddError(fmt.Sprintf("Failed setting global variable (%s)", name), err.Error())
 		return
 	}
+
+	resp.Diagnostics.Append(saveAppliedGlobalVariable(ctx, db, resp.Private, name, value)...)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -217,4 +230,91 @@ func setGlobalVariable(ctx context.Context, db *sql.DB, name, value string) erro
 	}
 
 	return nil
+}
+
+func readGlobalVariable(ctx context.Context, db *sql.DB, name string) (string, error) {
+	sql := fmt.Sprintf(`SELECT @@GLOBAL.%s`, name)
+	tflog.Info(ctx, sql)
+
+	var value string
+	err := db.QueryRowContext(ctx, sql).Scan(&value)
+	return value, err
+}
+
+// appliedValuePrivateKey is the private state key holding the value MySQL reported right
+// after the configured value was applied, which is the form MySQL normalizes the value to.
+const appliedValuePrivateKey = "applied_value"
+
+// saveAppliedGlobalVariable reads back the value MySQL stored for the configured value and
+// saves it in the private state, so that Read can tell the normalized form of the configured
+// value from a change made outside of Terraform.
+func saveAppliedGlobalVariable(ctx context.Context, db *sql.DB, private privateStateSetter, name, configuredValue string) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	appliedValue, err := readGlobalVariable(ctx, db, name)
+	if err != nil {
+		// The value is already applied, so do not fail. Without the saved value, Read reports
+		// the value MySQL has, which shows a diff once if it is written differently.
+		diags.AddWarning(fmt.Sprintf("Could not read back global variable (%s)", name), err.Error())
+		diags.Append(private.SetKey(ctx, appliedValuePrivateKey, nil)...)
+		return diags
+	}
+
+	if !globalVariableValueEquivalent(configuredValue, appliedValue) {
+		diags.AddWarning(
+			fmt.Sprintf("MySQL stored a different value for global variable (%s)", name),
+			fmt.Sprintf("MySQL stored %q for the configured value %q, for example because the value is out of range. "+
+				"Terraform keeps the configured value in the state.", appliedValue, configuredValue))
+	}
+
+	diags.Append(savePrivateString(ctx, private, appliedValuePrivateKey, appliedValue)...)
+	return diags
+}
+
+// wordListPattern matches a value made only of words separated by commas, such as an enum
+// value or `sql_mode`.
+var wordListPattern = regexp.MustCompile(`^[A-Za-z0-9_,]*$`)
+
+// globalVariableValueEquivalent guesses whether MySQL stored the configured value only in its
+// own form. It treats `ON`/`TRUE` as `1` and `OFF`/`FALSE` as `0`, and compares comma separated
+// words ignoring letter case and order. The guess is loose, so it decides only whether to warn
+// about a value MySQL changed, never whether a diff is reported.
+func globalVariableValueEquivalent(a, b string) bool {
+	if a == b {
+		return true
+	}
+	if normalizeBooleanValue(a) == normalizeBooleanValue(b) {
+		return true
+	}
+	if !wordListPattern.MatchString(a) || !wordListPattern.MatchString(b) {
+		return false
+	}
+	wordsA, wordsB := upperWordSet(a), upperWordSet(b)
+	if len(wordsA) != len(wordsB) {
+		return false
+	}
+	for word := range wordsA {
+		if _, ok := wordsB[word]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func normalizeBooleanValue(value string) string {
+	switch strings.ToUpper(value) {
+	case "ON", "TRUE":
+		return "1"
+	case "OFF", "FALSE":
+		return "0"
+	}
+	return value
+}
+
+func upperWordSet(value string) map[string]struct{} {
+	words := map[string]struct{}{}
+	for _, word := range strings.Split(strings.ToUpper(value), ",") {
+		words[word] = struct{}{}
+	}
+	return words
 }
