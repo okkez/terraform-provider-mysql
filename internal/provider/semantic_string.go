@@ -72,6 +72,10 @@ type semanticStringValue[E stringEquivalence] struct {
 
 var _ basetypes.StringValuableWithSemanticEquals = semanticStringValue[charsetNameEquivalence]{}
 
+func newSemanticStringValue[E stringEquivalence](value string) semanticStringValue[E] {
+	return semanticStringValue[E]{StringValue: basetypes.NewStringValue(value)}
+}
+
 func (v semanticStringValue[E]) Type(_ context.Context) attr.Type {
 	return semanticStringType[E]{}
 }
@@ -123,7 +127,7 @@ type (
 )
 
 func NewCharsetNameValue(value string) CharsetNameValue {
-	return CharsetNameValue{StringValue: basetypes.NewStringValue(value)}
+	return newSemanticStringValue[charsetNameEquivalence](value)
 }
 
 func normalizeCharsetName(name string) string {
@@ -154,7 +158,7 @@ type (
 )
 
 func NewPrivTypeValue(value string) PrivTypeValue {
-	return PrivTypeValue{StringValue: basetypes.NewStringValue(value)}
+	return newSemanticStringValue[privTypeEquivalence](value)
 }
 
 func normalizePrivType(privType string) string {
