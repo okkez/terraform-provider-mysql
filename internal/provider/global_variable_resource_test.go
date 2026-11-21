@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -65,7 +66,10 @@ func TestAccGlobalVariableResource_EquivalentNotation(t *testing.T) {
 	for caseName, c := range cases {
 		t.Run(caseName, func(t *testing.T) {
 			resource.Test(t, resource.TestCase{
-				PreCheck:                 func() { testAccPreCheck(t) },
+				PreCheck: func() {
+					testAccPreCheck(t)
+					testAccGlobalVariableResource_RestoreAfterTest(t, c.name)
+				},
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Steps: []resource.TestStep{
 					{
@@ -94,7 +98,10 @@ func TestAccGlobalVariableResource_DetectsOutOfBandChange(t *testing.T) {
 	for caseName, c := range cases {
 		t.Run(caseName, func(t *testing.T) {
 			resource.Test(t, resource.TestCase{
-				PreCheck:                 func() { testAccPreCheck(t) },
+				PreCheck: func() {
+					testAccPreCheck(t)
+					testAccGlobalVariableResource_RestoreAfterTest(t, c.name)
+				},
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				Steps: []resource.TestStep{
 					{
@@ -139,6 +146,24 @@ func TestGlobalVariableValueEquivalent(t *testing.T) {
 		{"", "", true},
 		{"/var/lib/A", "/var/lib/a", false},
 		{"a.b", "A.B", false},
+	})
+}
+
+// testAccGlobalVariableResource_RestoreAfterTest restores the value the server had before the
+// test, because destroying the resource sets the default value, which is not necessarily the
+// value the server was configured with.
+func testAccGlobalVariableResource_RestoreAfterTest(t *testing.T, name string) {
+	t.Helper()
+	ctx := context.Background()
+	db := testDatabase()
+	originalValue, err := readGlobalVariable(ctx, db, name)
+	if err != nil {
+		t.Fatalf("failed reading %s: %v", name, err)
+	}
+	t.Cleanup(func() {
+		if err := setGlobalVariable(ctx, db, name, originalValue); err != nil {
+			t.Errorf("failed restoring %s: %v", name, err)
+		}
 	})
 }
 
