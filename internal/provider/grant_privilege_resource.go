@@ -52,12 +52,12 @@ type GrantPrivilegeResourceModel struct {
 }
 
 type PrivilegeTypeModel struct {
-	PrivType types.String `tfsdk:"priv_type"`
-	Columns  types.Set    `tfsdk:"columns"`
+	PrivType PrivTypeValue `tfsdk:"priv_type"`
+	Columns  types.Set     `tfsdk:"columns"`
 }
 
 var PrivlilegeTypeModelTypes = map[string]attr.Type{
-	"priv_type": types.StringType,
+	"priv_type": PrivTypeType{},
 	"columns":   types.SetType{ElemType: types.StringType},
 }
 
@@ -97,6 +97,7 @@ func (r *GrantPrivilegeResource) Schema(ctx context.Context, req resource.Schema
 					Attributes: map[string]schema.Attribute{
 						"priv_type": schema.StringAttribute{
 							MarkdownDescription: "The privilege name.",
+							CustomType:          PrivTypeType{},
 							Required:            true,
 							Validators: []validator.String{
 								stringvalidator.RegexMatches(regexp.MustCompile(`\A[A-Z_ ]+\z`), "priv_type must be upper cases"),
@@ -262,10 +263,10 @@ func (r *GrantPrivilegeResource) Read(ctx context.Context, req resource.ReadRequ
 			}
 			privilegeTypeModelValue := map[string]attr.Value{}
 			if len(priv.Priv.String()) > 0 {
-				privilegeTypeModelValue["priv_type"] = types.StringValue(strings.ToUpper(priv.Priv.String()))
+				privilegeTypeModelValue["priv_type"] = NewPrivTypeValue(strings.ToUpper(priv.Priv.String()))
 			}
 			if len(priv.Name) > 0 {
-				privilegeTypeModelValue["priv_type"] = types.StringValue(strings.ToUpper(priv.Name))
+				privilegeTypeModelValue["priv_type"] = NewPrivTypeValue(strings.ToUpper(priv.Name))
 			}
 			if len(priv.Cols) == 0 {
 				privilegeTypeModelValue["columns"] = types.SetNull(types.StringType)
@@ -689,7 +690,7 @@ func convertRawsToPrivileges(raws []PrivilegeTypeRaw) []PrivilegeTypeModel {
 	var result []PrivilegeTypeModel
 	for _, r := range raws {
 		var p PrivilegeTypeModel
-		p.PrivType = types.StringValue(r.PrivType)
+		p.PrivType = NewPrivTypeValue(r.PrivType)
 		var columns []attr.Value
 		for _, c := range r.Columns {
 			columns = append(columns, types.StringValue(c))

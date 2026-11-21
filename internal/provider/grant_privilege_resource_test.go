@@ -57,6 +57,29 @@ func TestAccGrantPrivilegeResource(t *testing.T) {
 	})
 }
 
+// TestAccGrantPrivilegeResource_AllAlias checks that `ALL`, which `SHOW GRANTS` reports as
+// `ALL PRIVILEGES`, leaves no diff after apply, and that it can be updated to other privileges.
+func TestAccGrantPrivilegeResource_AllAlias(t *testing.T) {
+	database := fmt.Sprintf("test_database_%04d", rand.Intn(1000))
+	user := NewRandomUser("test-user", "%")
+	t.Logf("database: %s user: %s", database, user.GetID())
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccGrantPrivilegeResource_Config(t, database, user.GetName(), []string{"ALL"}, []string{}),
+			},
+			{
+				Config: testAccGrantPrivilegeResource_Config(t, database, user.GetName(), []string{"SELECT", "INSERT"}, []string{}),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("mysql_grant_privilege.test", "privilege.#", "2"),
+				),
+			},
+		},
+	})
+}
+
 func TestAccGrantPrivilegeResource_LowerCase(t *testing.T) {
 	database := fmt.Sprintf("test_database_%04d", rand.Intn(1000))
 	user := NewRandomUser("test-user", "%")
