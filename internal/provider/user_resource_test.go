@@ -642,6 +642,51 @@ func TestAccUserResource_DefaultPluginFromAuthenticationPolicy(t *testing.T) {
 	})
 }
 
+// TestAccUserResource_AuthenticationPolicyChangedAfterCreate checks that a user created
+// without `auth_option` leaves no diff after `authentication_policy` changes the default
+// plugin, because the user keeps the plugin it was created with.
+func TestAccUserResource_AuthenticationPolicyChangedAfterCreate(t *testing.T) {
+	user := NewRandomUser("test-user", "%")
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		CheckDestroy:             testAccUserResource_CheckDestroy([]UserModel{user}),
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccUserResource_Config(t, user.GetName(), ""),
+			},
+			{
+				PreConfig: func() {
+					testAccUserResource_SetAuthenticationPolicy(t, "sha256_password,,")
+				},
+				Config: testAccUserResource_Config(t, user.GetName(), ""),
+			},
+		},
+	})
+}
+
+// testAccUserResource_SetAuthenticationPolicy changes `authentication_policy` for the test,
+// and restores the value the server had, which is not necessarily the default one.
+func testAccUserResource_SetAuthenticationPolicy(t *testing.T, policy string) {
+	t.Helper()
+	db := testDatabase()
+	var originalPolicy string
+	if err := db.QueryRow("SELECT @@GLOBAL.authentication_policy").Scan(&originalPolicy); err != nil {
+		if mysqlErrorNumber(err) == unknownSystemVariableErrorNumber {
+			t.Skip("authentication_policy requires MySQL 8.0.27 or later")
+		}
+		t.Fatalf("failed reading authentication_policy: %v", err)
+	}
+	if _, err := db.Exec("SET GLOBAL authentication_policy = ?", policy); err != nil {
+		t.Fatalf("failed setting authentication_policy: %v", err)
+	}
+	t.Cleanup(func() {
+		if _, err := db.Exec("SET GLOBAL authentication_policy = ?", originalPolicy); err != nil {
+			t.Errorf("failed restoring authentication_policy: %v", err)
+		}
+	})
+}
+
 // TestAccUserResource_RemovedOutOfBand checks that a user dropped outside of Terraform
 // is removed from the state on refresh, instead of failing the refresh.
 func TestAccUserResource_RemovedOutOfBand(t *testing.T) {
