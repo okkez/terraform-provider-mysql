@@ -35,7 +35,7 @@ type GlobalVariableResource struct {
 type GlobalVariableResourceModel struct {
 	ID    types.String `tfsdk:"id"`
 	Name  types.String `tfsdk:"name"`
-	Value types.String `tfsdk:"value"`
+	Value GlobalVariableValueValue `tfsdk:"value"`
 }
 
 func (r *GlobalVariableResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -64,6 +64,7 @@ func (r *GlobalVariableResource) Schema(ctx context.Context, req resource.Schema
 			},
 			"value": schema.StringAttribute{
 				MarkdownDescription: "Global variable value",
+				CustomType:          GlobalVariableValueType{},
 				Required:            true,
 			},
 		},
@@ -140,7 +141,7 @@ func (r *GlobalVariableResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 	data.ID = types.StringValue(name)
 	data.Name = types.StringValue(name)
-	data.Value = types.StringValue(value)
+	data.Value = NewGlobalVariableValueValue(value)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

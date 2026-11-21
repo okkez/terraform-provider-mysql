@@ -51,6 +51,54 @@ func TestAccGlobalVariableResource(t *testing.T) {
 	})
 }
 
+// TestAccGlobalVariableResource_EquivalentNotation checks that a value written differently
+// from what MySQL reports leaves no diff after apply.
+func TestAccGlobalVariableResource_EquivalentNotation(t *testing.T) {
+	cases := map[string]struct{ name, value string }{
+		"boolean_on":     {"log_bin_trust_function_creators", "ON"},
+		"enum_lowercase": {"binlog_row_image", "minimal"},
+		"set_order":      {"sql_mode", "STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION,ONLY_FULL_GROUP_BY"},
+	}
+	for caseName, c := range cases {
+		t.Run(caseName, func(t *testing.T) {
+			resource.Test(t, resource.TestCase{
+				PreCheck:                 func() { testAccPreCheck(t) },
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Steps: []resource.TestStep{
+					{
+						Config: testAccGlobalVariableResourceConfig(c.name, c.value),
+					},
+				},
+			})
+		})
+	}
+}
+
+// TestAccGlobalVariableResource_DetectsOutOfBandChange checks that a real change made
+// outside of Terraform is still reported, even with a value written differently from
+// what MySQL reports.
+func TestAccGlobalVariableResource_DetectsOutOfBandChange(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccGlobalVariableResourceConfig("log_bin_trust_function_creators", "ON"),
+			},
+			{
+				PreConfig: func() {
+					db := testDatabase()
+					if _, err := db.Exec("SET GLOBAL log_bin_trust_function_creators = 0"); err != nil {
+						t.Fatalf("failed setting log_bin_trust_function_creators: %v", err)
+					}
+				},
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+}
+
 func testAccGlobalVariableResourceConfig(name, value string) string {
 	return fmt.Sprintf(`
 resource "mysql_global_variable" "test" {
