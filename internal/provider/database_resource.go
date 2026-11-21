@@ -33,8 +33,8 @@ type databaseResource struct {
 type databaseResourceModel struct {
 	Id                  types.String `tfsdk:"id"`
 	Name                types.String `tfsdk:"name"`
-	DefaultCharacterSet types.String `tfsdk:"default_character_set"`
-	DefaultCollation    types.String `tfsdk:"default_collation"`
+	DefaultCharacterSet CharsetNameValue `tfsdk:"default_character_set"`
+	DefaultCollation    CharsetNameValue `tfsdk:"default_collation"`
 }
 
 func (r *databaseResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -61,12 +61,14 @@ func (r *databaseResource) Schema(ctx context.Context, req resource.SchemaReques
 			},
 			"default_character_set": schema.StringAttribute{
 				MarkdownDescription: "The default character set. Defaults to `utf8mb4`.",
+				CustomType:          CharsetNameType{},
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString("utf8mb4"),
 			},
 			"default_collation": schema.StringAttribute{
 				MarkdownDescription: "The default collation. Defaults to `utf8mb4_0900_ai_ci`.",
+				CustomType:          CharsetNameType{},
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString("utf8mb4_0900_ai_ci"),
@@ -151,8 +153,8 @@ func (r *databaseResource) Read(ctx context.Context, req resource.ReadRequest, r
 	}
 
 	data.Name = data.Id
-	data.DefaultCharacterSet = types.StringValue(characterSet)
-	data.DefaultCollation = types.StringValue(collation)
+	data.DefaultCharacterSet = NewCharsetNameValue(characterSet)
+	data.DefaultCollation = NewCharsetNameValue(collation)
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

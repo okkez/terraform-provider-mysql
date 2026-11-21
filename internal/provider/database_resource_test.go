@@ -91,6 +91,58 @@ func TestAccDatabaseResource_RemovedOutOfBand(t *testing.T) {
 	})
 }
 
+// TestAccDatabaseResource_EquivalentNotation checks that a character set or a collation
+// written differently from what MySQL reports leaves no diff after apply.
+func TestAccDatabaseResource_EquivalentNotation(t *testing.T) {
+	cases := map[string]struct{ charset, collation string }{
+		"upper_charset":   {"UTF8MB4", "utf8mb4_0900_ai_ci"},
+		"upper_collation": {"utf8mb4", "UTF8MB4_BIN"},
+		"utf8_alias":      {"utf8", "utf8_general_ci"},
+	}
+	for caseName, c := range cases {
+		t.Run(caseName, func(t *testing.T) {
+			name := fmt.Sprintf("test-%04d", rand.Intn(10000))
+			resource.Test(t, resource.TestCase{
+				PreCheck:                 func() { testAccPreCheck(t) },
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				CheckDestroy:             testAccDatabaseResource_CheckDestroy(name),
+				Steps: []resource.TestStep{
+					{
+						Config: testAccDatabaseResource_ConfigFull(name, c.charset, c.collation),
+					},
+				},
+			})
+		})
+	}
+}
+
+// TestAccDatabaseResource_DetectsOutOfBandCharsetChange checks that a real change made
+// outside of Terraform is still reported, even with a configuration written differently
+// from what MySQL reports.
+func TestAccDatabaseResource_DetectsOutOfBandCharsetChange(t *testing.T) {
+	name := fmt.Sprintf("test-%04d", rand.Intn(10000))
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccDatabaseResource_CheckDestroy(name),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccDatabaseResource_ConfigFull(name, "UTF8MB4", "utf8mb4_bin"),
+			},
+			{
+				PreConfig: func() {
+					db := testDatabase()
+					if _, err := db.Exec(fmt.Sprintf("ALTER DATABASE `%s` CHARACTER SET latin1 COLLATE latin1_bin", name)); err != nil {
+						t.Fatalf("failed altering database %s: %v", name, err)
+					}
+				},
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+}
+
 func testAccDatabaseResource_Config(name string) string {
 	return fmt.Sprintf(`
 resource "mysql_database" "test" {
