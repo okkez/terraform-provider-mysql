@@ -107,8 +107,8 @@ func readUserPlugin(ctx context.Context, db *sql.DB, user, host string) (string,
 func defaultAuthenticationPlugins(ctx context.Context, db *sql.DB, currentVersion *version.Version) ([]string, error) {
 	var plugins []string
 	if !currentVersion.Core().LessThan(authenticationPolicyMinVersion) {
-		var policy string
-		if err := db.QueryRowContext(ctx, "SELECT @@authentication_policy").Scan(&policy); err != nil {
+		policy, err := readGlobalVariable(ctx, db, "authentication_policy")
+		if err != nil {
 			return nil, err
 		}
 		if plugin, ok := firstAuthenticationPolicyPlugin(policy); ok {
@@ -121,8 +121,8 @@ func defaultAuthenticationPlugins(ctx context.Context, db *sql.DB, currentVersio
 	if !currentVersion.Core().LessThan(defaultAuthenticationPluginRemovedVersion) {
 		return append(plugins, "caching_sha2_password"), nil
 	}
-	var plugin string
-	if err := db.QueryRowContext(ctx, "SELECT @@default_authentication_plugin").Scan(&plugin); err != nil {
+	plugin, err := readGlobalVariable(ctx, db, "default_authentication_plugin")
+	if err != nil {
 		return nil, err
 	}
 	return append(plugins, plugin), nil
