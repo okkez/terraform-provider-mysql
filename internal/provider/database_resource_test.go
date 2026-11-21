@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
@@ -138,6 +139,10 @@ func TestAccDatabaseResource_DetectsOutOfBandCharsetChange(t *testing.T) {
 				},
 				RefreshState:       true,
 				ExpectNonEmptyPlan: true,
+				// `ExpectNonEmptyPlan` only allows a non-empty plan, so require one explicitly.
+				RefreshPlanChecks: resource.RefreshPlanChecks{
+					PostRefresh: []plancheck.PlanCheck{plancheck.ExpectNonEmptyPlan()},
+				},
 			},
 		},
 	})
