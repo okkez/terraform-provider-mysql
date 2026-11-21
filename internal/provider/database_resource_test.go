@@ -91,6 +91,92 @@ func TestAccDatabaseResource_RemovedOutOfBand(t *testing.T) {
 	})
 }
 
+// TestAccDatabaseResource_EquivalentNotation checks that a character set or a collation
+// written differently from what MySQL reports leaves no diff after apply.
+func TestAccDatabaseResource_EquivalentNotation(t *testing.T) {
+	cases := map[string]struct{ charset, collation string }{
+		"upper_charset":   {"UTF8MB4", "utf8mb4_0900_ai_ci"},
+		"upper_collation": {"utf8mb4", "UTF8MB4_BIN"},
+		"utf8_alias":      {"utf8", "utf8_general_ci"},
+	}
+	for caseName, c := range cases {
+		t.Run(caseName, func(t *testing.T) {
+			name := fmt.Sprintf("test-%04d", rand.Intn(10000))
+			resource.Test(t, resource.TestCase{
+				PreCheck:                 func() { testAccPreCheck(t) },
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				CheckDestroy:             testAccDatabaseResource_CheckDestroy(name),
+				Steps: []resource.TestStep{
+					{
+						Config: testAccDatabaseResource_ConfigFull(name, c.charset, c.collation),
+					},
+				},
+			})
+		})
+	}
+}
+
+// TestAccDatabaseResource_DetectsOutOfBandCharsetChange checks that a real change made
+// outside of Terraform is still reported, even with a configuration written differently
+// from what MySQL reports.
+func TestAccDatabaseResource_DetectsOutOfBandCharsetChange(t *testing.T) {
+	name := fmt.Sprintf("test-%04d", rand.Intn(10000))
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccDatabaseResource_CheckDestroy(name),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccDatabaseResource_ConfigFull(name, "UTF8MB4", "utf8mb4_bin"),
+			},
+			testAccStepExpectOutOfBandChange(func() {
+				db := testDatabase()
+				if _, err := db.Exec(fmt.Sprintf("ALTER DATABASE `%s` CHARACTER SET latin1 COLLATE latin1_bin", name)); err != nil {
+					t.Fatalf("failed altering database %s: %v", name, err)
+				}
+			}),
+		},
+	})
+}
+
+// TestAccDatabaseResource_UpdateCharsetKeepsCollation checks that updating the character set
+// keeps the configured collation, as `ALTER DATABASE ... CHARACTER SET` alone resets the
+// collation to the default one of the character set.
+func TestAccDatabaseResource_UpdateCharsetKeepsCollation(t *testing.T) {
+	name := fmt.Sprintf("test-%04d", rand.Intn(10000))
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccDatabaseResource_CheckDestroy(name),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccDatabaseResource_ConfigFull(name, "utf8mb4", "utf8mb4_bin"),
+			},
+			// Only the notation of the character set changes, which plan still reports as a
+			// change, so Update issues `ALTER DATABASE ... CHARACTER SET` with the same collation.
+			{
+				Config: testAccDatabaseResource_ConfigFull(name, "UTF8MB4", "utf8mb4_bin"),
+				Check:  testAccDatabaseResource_CheckCollation(name, "utf8mb4_bin"),
+			},
+		},
+	})
+}
+
+func testAccDatabaseResource_CheckCollation(name, expected string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		db := testDatabase()
+		var collation string
+		query := `SELECT DEFAULT_COLLATION_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?`
+		if err := db.QueryRow(query, name).Scan(&collation); err != nil {
+			return err
+		}
+		if collation != expected {
+			return fmt.Errorf("expected collation %q but was %q", expected, collation)
+		}
+		return nil
+	}
+}
+
 func testAccDatabaseResource_Config(name string) string {
 	return fmt.Sprintf(`
 resource "mysql_database" "test" {

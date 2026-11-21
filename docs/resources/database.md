@@ -28,7 +28,7 @@ resource "mysql_database" "my-database" {
 ### Optional
 
 - `default_character_set` (String) The default character set. Defaults to `utf8mb4`.
-- `default_collation` (String) The default collation. Defaults to `utf8mb4_0900_ai_ci`.
+- `default_collation` (String) The default collation. Defaults to `utf8mb4_0900_ai_ci`. It must belong to `default_character_set`, so set it as well when setting `default_character_set` to other than `utf8mb4`.
 
 ### Read-Only
 

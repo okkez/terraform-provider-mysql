@@ -10,9 +10,25 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 
 	"github.com/okkez/terraform-provider-mysql/internal/utils"
 )
+
+// testAccStepExpectOutOfBandChange returns a step which makes a change outside of Terraform
+// with preConfig and requires the refreshed plan to show it. `ExpectNonEmptyPlan` alone only
+// allows a non-empty plan, so the step also requires one with a plan check.
+func testAccStepExpectOutOfBandChange(preConfig func()) resource.TestStep {
+	return resource.TestStep{
+		PreConfig:          preConfig,
+		RefreshState:       true,
+		ExpectNonEmptyPlan: true,
+		RefreshPlanChecks: resource.RefreshPlanChecks{
+			PostRefresh: []plancheck.PlanCheck{plancheck.ExpectNonEmptyPlan()},
+		},
+	}
+}
 
 // testAccProtoV6ProviderFactories are used to instantiate a provider during
 // acceptance testing. The factory function will be invoked for every Terraform

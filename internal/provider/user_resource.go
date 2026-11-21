@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/hashicorp/go-version"
@@ -47,7 +48,7 @@ var dualPasswordMinVersion = version.Must(version.NewVersion("8.0.14"))
 // `-commercial`, or a distribution specific one. `go-version` treats the suffix as a
 // prerelease, which sorts below the release itself, so compare only the core version.
 func supportsDualPassword(currentVersion *version.Version) bool {
-	return !currentVersion.Core().LessThan(dualPasswordMinVersion)
+	return currentVersion.Core().GreaterThanOrEqual(dualPasswordMinVersion)
 }
 
 // secondaryPasswordExpression returns the SQL expression reporting whether an account has a
@@ -68,6 +69,92 @@ func checkDualPasswordSupport(currentVersion *version.Version) error {
 	}
 	return nil
 }
+
+// firstAuthenticationPolicyPlugin returns the plugin which `@@authentication_policy` names for
+// the first authentication factor. It reports false for `*` or an empty element, which means
+// the plugin is not fixed by the policy.
+// See https://dev.mysql.com/doc/refman/8.4/en/server-system-variables.html#sysvar_authentication_policy
+func firstAuthenticationPolicyPlugin(policy string) (string, bool) {
+	first, _, _ := strings.Cut(policy, ",")
+	first = strings.TrimSpace(first)
+	if first == "" || first == "*" {
+		return "", false
+	}
+	if plugin, ok := strings.CutPrefix(first, "*:"); ok {
+		return plugin, true
+	}
+	return first, true
+}
+
+// createdPluginPrivateKey is the private state key holding the plugin a user created without
+// `auth_option` got. The default plugin can change later with `authentication_policy`, while
+// the user keeps the plugin it was created with, so Read compares against this one.
+const createdPluginPrivateKey = "created_plugin"
+
+func readUserPlugin(ctx context.Context, db *sql.DB, user, host string) (string, error) {
+	return queryUserColumn[string](ctx, db, "plugin", user, host)
+}
+
+// queryUserColumn reads one expression of the account from `mysql.user`.
+func queryUserColumn[T any](ctx context.Context, db *sql.DB, expression, user, host string) (T, error) {
+	query := fmt.Sprintf(`SELECT %s FROM mysql.user WHERE User = ? AND Host = ?`, expression)
+	tflog.Info(ctx, query, map[string]any{"args": []any{user, host}})
+	var value T
+	err := db.QueryRowContext(ctx, query, user, host).Scan(&value)
+	return value, err
+}
+
+// containsPlugin reports whether plugins has plugin, ignoring letter case. MySQL keeps
+// `authentication_policy` as written, while `mysql.user.plugin` holds the canonical name, which
+// is lowercase for built-in plugins but not for others such as AWSAuthenticationPlugin.
+func containsPlugin(plugins []string, plugin string) bool {
+	return slices.ContainsFunc(plugins, func(p string) bool { return strings.EqualFold(p, plugin) })
+}
+
+// defaultAuthenticationPlugins returns the plugins a user created without `IDENTIFIED WITH`
+// may have got: the one `authentication_policy` names now, and the one
+// `default_authentication_plugin` names, which applies when the policy defers to it. A user
+// created before the policy changed keeps the latter, so both count as the default.
+func defaultAuthenticationPlugins(ctx context.Context, db *sql.DB, currentVersion *version.Version) ([]string, error) {
+	var plugins []string
+	if currentVersion.Core().GreaterThanOrEqual(authenticationPolicyMinVersion) {
+		// A compatible server may report such a version without having the variable, so treat
+		// an unknown variable as a missing policy.
+		policy, err := readGlobalVariable(ctx, db, "authentication_policy")
+		switch {
+		case err == nil:
+			if plugin, ok := firstAuthenticationPolicyPlugin(policy); ok {
+				plugins = append(plugins, plugin)
+			}
+		case mysqlErrorNumber(err) == unknownSystemVariableErrorNumber:
+			// No policy to follow.
+		default:
+			return nil, err
+		}
+	}
+
+	// `default_authentication_plugin` is removed in MySQL 8.4, where the default is caching_sha2_password.
+	// See https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_default_authentication_plugin
+	if currentVersion.Core().GreaterThanOrEqual(defaultAuthenticationPluginRemovedVersion) {
+		return append(plugins, "caching_sha2_password"), nil
+	}
+	plugin, err := readGlobalVariable(ctx, db, "default_authentication_plugin")
+	if err != nil {
+		if mysqlErrorNumber(err) == unknownSystemVariableErrorNumber {
+			return append(plugins, "caching_sha2_password"), nil
+		}
+		return nil, err
+	}
+	return append(plugins, plugin), nil
+}
+
+var (
+	// authenticationPolicyMinVersion is the first MySQL version which has `authentication_policy`.
+	authenticationPolicyMinVersion = version.Must(version.NewVersion("8.0.27"))
+	// defaultAuthenticationPluginRemovedVersion is the first MySQL version which no longer has
+	// `default_authentication_plugin`.
+	defaultAuthenticationPluginRemovedVersion = version.Must(version.NewVersion("8.4.0"))
+)
 
 func NewUserResource() resource.Resource {
 	return &UserResource{}
@@ -311,6 +398,17 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 	// `CREATE USER` does not accept `RETAIN CURRENT PASSWORD`, so a new user never has one.
 	data.HasSecondaryPassword = types.BoolValue(false)
 
+	if data.AuthOption.IsNull() {
+		plugin, err := readUserPlugin(ctx, db, data.Name.ValueString(), data.Host.ValueString())
+		if err != nil {
+			// The user is already created, so keep it in the state. Read then compares the
+			// plugin against the default plugins instead.
+			resp.Diagnostics.AddWarning("Could not read the plugin of the created user", err.Error())
+		} else {
+			resp.Diagnostics.Append(savePrivateString(ctx, resp.Private, createdPluginPrivateKey, plugin)...)
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -371,27 +469,29 @@ WHERE
 	data.Lock = types.BoolValue(accountLocked == "Y")
 
 	if data.AuthOption.IsNull() {
-		// https://dev.mysql.com/doc/refman/8.4/en/native-pluggable-authentication.html
-		// The mysql_native_password authentication plugin is deprecated as of MySQL 8.0.34, disabled by default in MySQL 8.4,
-		// and removed as of MySQL 9.0.0.
-		// See https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_default_authentication_plugin
-		var defaultAuthenticationPlugin string
-		err := db.QueryRowContext(ctx, "SELECT @@default_authentication_plugin").Scan(&defaultAuthenticationPlugin)
-		if err != nil {
-			if mysqlErrorNumber(err) == unknownSystemVariableErrorNumber {
-				// ER_UNKNOWN_SYSTEM_VARIABLE: For MySQL 8.4+ where default_authentication_plugin is removed
-				// Default authentication plugin is caching_sha2_password
-				defaultAuthenticationPlugin = "caching_sha2_password"
-				tflog.Info(ctx, fmt.Sprintf("Using hardcoded default plugin for MySQL 8.4+: %s", defaultAuthenticationPlugin))
-			} else {
-				// Other database errors should be surfaced
+		// A user created without `auth_option` gets the default plugin, so `auth_option` stays
+		// null unless the user has another plugin now.
+		createdPlugin, saved, diags := loadPrivateString(ctx, req.Private, createdPluginPrivateKey)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		expectedPlugins := []string{createdPlugin}
+		if !saved {
+			// An imported user or a state written by an earlier version has no saved plugin.
+			expectedPlugins, err = defaultAuthenticationPlugins(ctx, db, currentVersion)
+			if err != nil {
 				resp.Diagnostics.AddError("Failed to query default authentication plugin", err.Error())
 				return
 			}
-		} else {
-			tflog.Info(ctx, fmt.Sprintf("default_authentication_plugin=%s", defaultAuthenticationPlugin))
 		}
-		if plugin != defaultAuthenticationPlugin {
+		tflog.Info(ctx, fmt.Sprintf("expected authentication plugins=%v", expectedPlugins))
+		if containsPlugin(expectedPlugins, plugin) {
+			if !saved {
+				// Save it, so that a later change of the default plugin leaves no diff.
+				resp.Diagnostics.Append(savePrivateString(ctx, resp.Private, createdPluginPrivateKey, plugin)...)
+			}
+		} else {
 			attributes := map[string]attr.Value{
 				"plugin":                  types.StringValue(plugin),
 				"auth_string":             types.StringNull(),
@@ -578,6 +678,11 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
+	if !data.AuthOption.IsNull() {
+		// The plugin is managed by `auth_option` from now on, so the created one no longer applies.
+		resp.Diagnostics.Append(clearPrivateKey(ctx, resp.Private, createdPluginPrivateKey)...)
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -588,17 +693,7 @@ func readHasSecondaryPassword(ctx context.Context, db *sql.DB, currentVersion *v
 		return false, nil
 	}
 
-	var args []interface{}
-	args = append(args, data.Name.ValueString())
-	args = append(args, data.Host.ValueString())
-
-	query := fmt.Sprintf(`SELECT %s FROM mysql.user WHERE User = ? AND Host = ?`, secondaryPasswordExpression(currentVersion))
-	tflog.Info(ctx, query, map[string]any{"args": args})
-	var hasSecondaryPassword bool
-	if err := db.QueryRowContext(ctx, query, args...).Scan(&hasSecondaryPassword); err != nil {
-		return false, err
-	}
-	return hasSecondaryPassword, nil
+	return queryUserColumn[bool](ctx, db, secondaryPasswordExpression(currentVersion), data.Name.ValueString(), data.Host.ValueString())
 }
 
 // stateWithoutDiscardOldPassword returns a copy of `data` with `discard_old_password` unset.

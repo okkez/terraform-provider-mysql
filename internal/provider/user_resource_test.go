@@ -582,6 +582,148 @@ func TestAccUserResource_CreateFailsOnExistingUser(t *testing.T) {
 	})
 }
 
+// TestContainsPlugin checks that plugin names are compared ignoring letter case, because
+// `authentication_policy` keeps the letter case as written while `mysql.user.plugin` holds the
+// canonical name, which is lowercase for built-in plugins but not for every plugin.
+func TestContainsPlugin(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		plugins []string
+		plugin  string
+		want    bool
+	}{
+		{[]string{"SHA256_PASSWORD"}, "sha256_password", true},
+		{[]string{"caching_sha2_password", "AWSAuthenticationPlugin"}, "AWSAuthenticationPlugin", true},
+		{[]string{"caching_sha2_password"}, "sha256_password", false},
+		{nil, "caching_sha2_password", false},
+	}
+	for _, tt := range tests {
+		if got := containsPlugin(tt.plugins, tt.plugin); got != tt.want {
+			t.Errorf("containsPlugin(%q, %q): got %t, want %t", tt.plugins, tt.plugin, got, tt.want)
+		}
+	}
+}
+
+// TestFirstAuthenticationPolicyPlugin checks how the plugin of the first factor is taken
+// out of `@@authentication_policy`.
+func TestFirstAuthenticationPolicyPlugin(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		policy     string
+		wantPlugin string
+		wantOK     bool
+	}{
+		{"*,,", "", false},
+		{"*", "", false},
+		{"", "", false},
+		{"sha256_password,,", "sha256_password", true},
+		{"*:caching_sha2_password,,", "caching_sha2_password", true},
+		{" mysql_native_password , ", "mysql_native_password", true},
+		// The letter case is kept as written; containsPlugin ignores it.
+		{"SHA256_PASSWORD,,", "SHA256_PASSWORD", true},
+		{"*:AWSAuthenticationPlugin,,", "AWSAuthenticationPlugin", true},
+	}
+	for _, tt := range tests {
+		plugin, ok := firstAuthenticationPolicyPlugin(tt.policy)
+		if plugin != tt.wantPlugin || ok != tt.wantOK {
+			t.Errorf("firstAuthenticationPolicyPlugin(%q): got (%q, %t), want (%q, %t)", tt.policy, plugin, ok, tt.wantPlugin, tt.wantOK)
+		}
+	}
+}
+
+// TestAccUserResource_DefaultPluginFromAuthenticationPolicy checks that a user without
+// `auth_option` leaves no diff when `authentication_policy` makes a plugin other than
+// `caching_sha2_password` the default one.
+func TestAccUserResource_DefaultPluginFromAuthenticationPolicy(t *testing.T) {
+	user := NewRandomUser("test-user", "%")
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+			testAccUserResource_SetAuthenticationPolicy(t, "sha256_password,,")
+		},
+		CheckDestroy:             testAccUserResource_CheckDestroy([]UserModel{user}),
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccUserResource_Config(t, user.GetName(), ""),
+			},
+			// An imported user has no saved plugin, so Read compares with the default plugin
+			// taken from `authentication_policy`.
+			{
+				ResourceName:      "mysql_user.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+// TestAccUserResource_AuthenticationPolicyChangedAfterCreate checks that a user created
+// without `auth_option` leaves no diff after `authentication_policy` changes the default
+// plugin, because the user keeps the plugin it was created with.
+func TestAccUserResource_AuthenticationPolicyChangedAfterCreate(t *testing.T) {
+	user := NewRandomUser("test-user", "%")
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		CheckDestroy:             testAccUserResource_CheckDestroy([]UserModel{user}),
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccUserResource_Config(t, user.GetName(), ""),
+			},
+			{
+				PreConfig: func() {
+					testAccUserResource_SetAuthenticationPolicy(t, "sha256_password,,")
+				},
+				Config: testAccUserResource_Config(t, user.GetName(), ""),
+			},
+		},
+	})
+}
+
+// TestAccUserResource_AuthenticationPolicyChangedWithoutSavedPlugin checks the same as
+// TestAccUserResource_AuthenticationPolicyChangedAfterCreate for a user without the saved
+// plugin, as for an imported user or a state written by an earlier version.
+func TestAccUserResource_AuthenticationPolicyChangedWithoutSavedPlugin(t *testing.T) {
+	user := NewRandomUser("test-user", "%")
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+			// Create the user outside of Terraform, so that it is imported without a saved plugin.
+			if _, err := testDatabase().Exec(fmt.Sprintf("CREATE USER '%s'@'%s'", user.GetName(), user.GetHost())); err != nil {
+				t.Fatalf("failed creating user %s: %v", user.GetID(), err)
+			}
+		},
+		CheckDestroy:             testAccUserResource_CheckDestroy([]UserModel{user}),
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:             testAccUserResource_Config(t, user.GetName(), ""),
+				ResourceName:       "mysql_user.test",
+				ImportState:        true,
+				ImportStateId:      user.GetID(),
+				ImportStatePersist: true,
+			},
+			{
+				PreConfig: func() {
+					testAccUserResource_SetAuthenticationPolicy(t, "sha256_password,,")
+				},
+				Config: testAccUserResource_Config(t, user.GetName(), ""),
+			},
+		},
+	})
+}
+
+// testAccUserResource_SetAuthenticationPolicy changes `authentication_policy` for the test,
+// and restores the value the server had, which is not necessarily the default one.
+func testAccUserResource_SetAuthenticationPolicy(t *testing.T, policy string) {
+	t.Helper()
+	testAccGlobalVariableResource_RestoreAfterTest(t, "authentication_policy")
+	if err := setGlobalVariable(context.Background(), testDatabase(), "authentication_policy", policy); err != nil {
+		t.Fatalf("failed setting authentication_policy: %v", err)
+	}
+}
+
 // TestAccUserResource_RemovedOutOfBand checks that a user dropped outside of Terraform
 // is removed from the state on refresh, instead of failing the refresh.
 func TestAccUserResource_RemovedOutOfBand(t *testing.T) {
