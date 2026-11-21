@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"maps"
 	"regexp"
 	"strconv"
 	"strings"
@@ -289,16 +290,7 @@ func globalVariableValueEquivalent(a, b string) bool {
 	if !wordListPattern.MatchString(a) || !wordListPattern.MatchString(b) {
 		return false
 	}
-	wordsA, wordsB := upperWordSet(a), upperWordSet(b)
-	if len(wordsA) != len(wordsB) {
-		return false
-	}
-	for word := range wordsA {
-		if _, ok := wordsB[word]; !ok {
-			return false
-		}
-	}
-	return true
+	return maps.Equal(upperWordSet(a), upperWordSet(b))
 }
 
 func normalizeBooleanValue(value string) string {
