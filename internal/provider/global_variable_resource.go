@@ -296,17 +296,17 @@ var wordListPattern = regexp.MustCompile(`^[A-Za-z0-9_,-]*$`)
 // own form. It treats `ON`/`TRUE` as `1` and `OFF`/`FALSE` as `0`, and compares comma separated
 // words ignoring letter case and order. The guess is loose, so it decides only whether to warn
 // about a value MySQL changed, never whether a diff is reported.
-func globalVariableValueEquivalent(a, b string) bool {
-	if a == b {
+func globalVariableValueEquivalent(configuredValue, appliedValue string) bool {
+	if configuredValue == appliedValue {
 		return true
 	}
-	if normalizeBooleanValue(a) == normalizeBooleanValue(b) {
+	if normalizeBooleanValue(configuredValue) == normalizeBooleanValue(appliedValue) {
 		return true
 	}
-	if !wordListPattern.MatchString(a) || !wordListPattern.MatchString(b) {
+	if !wordListPattern.MatchString(configuredValue) || !wordListPattern.MatchString(appliedValue) {
 		return false
 	}
-	return maps.Equal(upperWordSet(a), upperWordSet(b))
+	return maps.Equal(upperWordSet(configuredValue), upperWordSet(appliedValue))
 }
 
 func normalizeBooleanValue(value string) string {

@@ -154,27 +154,28 @@ func TestAccGlobalVariableResource_DetectsOutOfBandChange(t *testing.T) {
 // MySQL stored differently from the configured one.
 func TestGlobalVariableValueEquivalent(t *testing.T) {
 	runEquivalenceCases(t, "globalVariableValueEquivalent", globalVariableValueEquivalent, []equivalenceCase{
+		// Each case is {configured value, value MySQL reported, want}.
 		// Exactly the same values.
 		{"2", "2", true},
 		{"", "", true},
 		// Boolean words against what MySQL reports for boolean variables.
-		{"1", "ON", true},
-		{"1", "on", true},
-		{"1", "TRUE", true},
-		{"0", "OFF", true},
-		{"0", "false", true},
-		{"1", "OFF", false},
-		{"0", "ON", false},
+		{"ON", "1", true},
+		{"on", "1", true},
+		{"TRUE", "1", true},
+		{"OFF", "0", true},
+		{"false", "0", true},
+		{"OFF", "1", false},
+		{"ON", "0", false},
 		// Words separated by commas, ignoring letter case and order.
-		{"MINIMAL", "minimal", true},
-		{"READ-COMMITTED", "read-committed", true},
-		{"ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION", "STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION,ONLY_FULL_GROUP_BY", true},
-		{"STRICT_TRANS_TABLES", "STRICT_TRANS_TABLES,ONLY_FULL_GROUP_BY", false},
+		{"minimal", "MINIMAL", true},
+		{"read-committed", "READ-COMMITTED", true},
+		{"STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION,ONLY_FULL_GROUP_BY", "ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION", true},
+		{"STRICT_TRANS_TABLES,ONLY_FULL_GROUP_BY", "STRICT_TRANS_TABLES", false},
 		// A number capped by MySQL.
-		{"100000", "1000000", false},
+		{"1000000", "100000", false},
 		// Values with other characters, such as paths, are compared exactly.
-		{"/var/lib/A", "/var/lib/a", false},
-		{"a.b", "A.B", false},
+		{"/var/lib/a", "/var/lib/A", false},
+		{"A.B", "a.b", false},
 	})
 }
 
