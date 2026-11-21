@@ -131,6 +131,10 @@ func TestAccGlobalVariableResource_DetectsOutOfBandChange(t *testing.T) {
 // MySQL stored differently from the configured one.
 func TestGlobalVariableValueEquivalent(t *testing.T) {
 	runEquivalenceCases(t, "globalVariableValueEquivalent", globalVariableValueEquivalent, []equivalenceCase{
+		// Exactly the same values.
+		{"2", "2", true},
+		{"", "", true},
+		// Boolean words against what MySQL reports for boolean variables.
 		{"1", "ON", true},
 		{"1", "on", true},
 		{"1", "TRUE", true},
@@ -138,12 +142,13 @@ func TestGlobalVariableValueEquivalent(t *testing.T) {
 		{"0", "false", true},
 		{"1", "OFF", false},
 		{"0", "ON", false},
+		// Words separated by commas, ignoring letter case and order.
 		{"MINIMAL", "minimal", true},
 		{"ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION", "STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION,ONLY_FULL_GROUP_BY", true},
 		{"STRICT_TRANS_TABLES", "STRICT_TRANS_TABLES,ONLY_FULL_GROUP_BY", false},
+		// A number capped by MySQL.
 		{"100000", "1000000", false},
-		{"2", "2", true},
-		{"", "", true},
+		// Values with other characters, such as paths, are compared exactly.
 		{"/var/lib/A", "/var/lib/a", false},
 		{"a.b", "A.B", false},
 	})
