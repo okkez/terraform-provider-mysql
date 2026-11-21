@@ -176,11 +176,14 @@ func (r *databaseResource) Update(ctx context.Context, req resource.UpdateReques
 	database, _ := quoteIdentifier(ctx, db, data.Name.ValueString())
 	sql := fmt.Sprintf("ALTER DATABASE %s", database)
 	var args []interface{}
-	if !data.DefaultCharacterSet.Equal(state.DefaultCharacterSet) {
+	charsetChanged := !data.DefaultCharacterSet.Equal(state.DefaultCharacterSet)
+	if charsetChanged {
 		sql += " CHARACTER SET ?"
 		args = append(args, data.DefaultCharacterSet.ValueString())
 	}
-	if !data.DefaultCollation.Equal(state.DefaultCollation) {
+	// `CHARACTER SET` alone resets the collation to the default one of the character set, so
+	// repeat the configured collation whenever the character set changes.
+	if charsetChanged || !data.DefaultCollation.Equal(state.DefaultCollation) {
 		sql += " COLLATE ?"
 		args = append(args, data.DefaultCollation.ValueString())
 	}

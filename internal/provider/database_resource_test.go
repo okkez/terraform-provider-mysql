@@ -148,6 +148,42 @@ func TestAccDatabaseResource_DetectsOutOfBandCharsetChange(t *testing.T) {
 	})
 }
 
+// TestAccDatabaseResource_UpdateCharsetKeepsCollation checks that updating the character set
+// keeps the configured collation, as `ALTER DATABASE ... CHARACTER SET` alone resets the
+// collation to the default one of the character set.
+func TestAccDatabaseResource_UpdateCharsetKeepsCollation(t *testing.T) {
+	name := fmt.Sprintf("test-%04d", rand.Intn(10000))
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccDatabaseResource_CheckDestroy(name),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccDatabaseResource_ConfigFull(name, "utf8mb4", "utf8mb4_bin"),
+			},
+			{
+				Config: testAccDatabaseResource_ConfigFull(name, "UTF8MB4", "utf8mb4_bin"),
+				Check:  testAccDatabaseResource_CheckCollation(name, "utf8mb4_bin"),
+			},
+		},
+	})
+}
+
+func testAccDatabaseResource_CheckCollation(name, expected string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		db := testDatabase()
+		var collation string
+		query := `SELECT DEFAULT_COLLATION_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?`
+		if err := db.QueryRow(query, name).Scan(&collation); err != nil {
+			return err
+		}
+		if collation != expected {
+			return fmt.Errorf("expected collation %q but was %q", expected, collation)
+		}
+		return nil
+	}
+}
+
 func testAccDatabaseResource_Config(name string) string {
 	return fmt.Sprintf(`
 resource "mysql_database" "test" {
