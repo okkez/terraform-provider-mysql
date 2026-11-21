@@ -58,12 +58,24 @@ func TestSemanticStringValue_StringSemanticEquals(t *testing.T) {
 	if equal || !diags.HasError() {
 		t.Errorf("different value types: got (%t, %v), want (false, error)", equal, diags)
 	}
+}
 
+// TestSemanticStringValue_Equal checks that Equal stays an exact comparison, as the framework
+// requires, while StringSemanticEquals reports the equivalence.
+func TestSemanticStringValue_Equal(t *testing.T) {
 	if NewCharsetNameValue("a").Equal(NewCharsetNameValue("A")) {
 		t.Error("Equal must stay an exact comparison")
 	}
+	if !NewCharsetNameValue("a").Equal(NewCharsetNameValue("a")) {
+		t.Error("Equal must report the same value as equal")
+	}
+}
 
+func TestSemanticStringType_Equal(t *testing.T) {
 	if (CharsetNameType{}).Equal(PrivTypeType{}) {
 		t.Error("types with different equivalences must not be equal")
+	}
+	if !(CharsetNameType{}).Equal(CharsetNameType{}) {
+		t.Error("the same type must be equal")
 	}
 }
