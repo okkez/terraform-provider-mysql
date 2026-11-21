@@ -71,6 +71,17 @@ func TestSemanticStringValue_Equal(t *testing.T) {
 	}
 }
 
+// TestSemanticStringType_String checks that typeName of each rule is kept the same as the name
+// of its exported alias, which Go cannot derive.
+func TestSemanticStringType_String(t *testing.T) {
+	if got := (CharsetNameType{}).String(); got != "CharsetNameType" {
+		t.Errorf("CharsetNameType.String() = %q", got)
+	}
+	if got := (PrivTypeType{}).String(); got != "PrivTypeType" {
+		t.Errorf("PrivTypeType.String() = %q", got)
+	}
+}
+
 func TestSemanticStringType_Equal(t *testing.T) {
 	if (CharsetNameType{}).Equal(PrivTypeType{}) {
 		t.Error("types with different equivalences must not be equal")
