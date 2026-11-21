@@ -153,6 +153,9 @@ func (r *GlobalVariableResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 	if !saved || value != appliedValue {
 		data.Value = types.StringValue(value)
+		// The state now holds the server value, so the applied value no longer tells the
+		// configured form. Keeping it would hide a later change back to the applied value.
+		resp.Diagnostics.Append(resp.Private.SetKey(ctx, appliedValuePrivateKey, nil)...)
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

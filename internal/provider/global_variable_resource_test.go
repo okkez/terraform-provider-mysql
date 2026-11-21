@@ -81,6 +81,49 @@ func TestAccGlobalVariableResource_EquivalentNotation(t *testing.T) {
 	}
 }
 
+// TestAccGlobalVariableResource_DetectsRevertToAppliedValue checks that a value changed back
+// to the applied one is still reported, after the configuration followed an out-of-band
+// change without running apply.
+func TestAccGlobalVariableResource_DetectsRevertToAppliedValue(t *testing.T) {
+	const name = "max_connections"
+	setOutOfBand := func(value string) func() {
+		return func() {
+			if err := setGlobalVariable(context.Background(), testDatabase(), name, value); err != nil {
+				t.Fatalf("failed setting %s: %v", name, err)
+			}
+		}
+	}
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+			testAccGlobalVariableResource_RestoreAfterTest(t, name)
+		},
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccGlobalVariableResourceConfig(name, "500"),
+			},
+			{
+				PreConfig:          setOutOfBand("1000"),
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+			},
+			// The configuration follows the server, so apply has nothing to do.
+			{
+				Config: testAccGlobalVariableResourceConfig(name, "1000"),
+			},
+			{
+				PreConfig:          setOutOfBand("500"),
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				RefreshPlanChecks: resource.RefreshPlanChecks{
+					PostRefresh: []plancheck.PlanCheck{plancheck.ExpectNonEmptyPlan()},
+				},
+			},
+		},
+	})
+}
+
 // TestAccGlobalVariableResource_DetectsOutOfBandChange checks that a real change made
 // outside of Terraform is still reported, even with a value written differently from
 // what MySQL reports.
