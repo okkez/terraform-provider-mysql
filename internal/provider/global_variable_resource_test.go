@@ -59,8 +59,6 @@ func TestAccGlobalVariableResource_EquivalentNotation(t *testing.T) {
 		"boolean_on":     {"log_bin_trust_function_creators", "ON"},
 		"enum_lowercase": {"binlog_row_image", "minimal"},
 		"set_order":      {"sql_mode", "STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION,ONLY_FULL_GROUP_BY"},
-		// MySQL caps the value at 100000. Apply warns about it instead of leaving a diff.
-		"clamped": {"max_connections", "1000000"},
 	}
 	for caseName, c := range cases {
 		t.Run(caseName, func(t *testing.T) {
@@ -78,6 +76,26 @@ func TestAccGlobalVariableResource_EquivalentNotation(t *testing.T) {
 			})
 		})
 	}
+}
+
+// TestAccGlobalVariableResource_CappedValueLeavesNoDiff checks that a value MySQL caps at its
+// maximum leaves no diff after apply, as the state keeps the configured value. Apply warns
+// about it, which this test does not check because the test framework does not expose warnings.
+func TestAccGlobalVariableResource_CappedValueLeavesNoDiff(t *testing.T) {
+	const name = "max_connections"
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+			testAccGlobalVariableResource_RestoreAfterTest(t, name)
+		},
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				// MySQL caps max_connections at 100000.
+				Config: testAccGlobalVariableResourceConfig(name, "1000000"),
+			},
+		},
+	})
 }
 
 // TestAccGlobalVariableResource_DetectsRevertToAppliedValue checks that a value changed back
