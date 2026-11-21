@@ -153,7 +153,9 @@ func (r *GlobalVariableResource) Read(ctx context.Context, req resource.ReadRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if !saved || value != appliedValue {
+	// Without the applied value, the configured form is unknown, as after import.
+	serverValueDiffers := !saved || value != appliedValue
+	if serverValueDiffers {
 		data.Value = types.StringValue(value)
 		// The state now holds the server value, so the applied value no longer tells the
 		// configured form. Keeping it would hide a later change back to the applied value.
