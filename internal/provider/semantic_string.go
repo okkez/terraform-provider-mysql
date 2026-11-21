@@ -16,6 +16,8 @@ import (
 // lowercasing character set names, so comparing them as plain strings leaves a diff after
 // every apply.
 type stringEquivalence interface {
+	// typeName is the name of the type shown in messages. Keep it the same as the name of the
+	// exported alias of semanticStringType for the rule, as Go cannot derive it.
 	typeName() string
 	equivalent(a, b string) bool
 }
