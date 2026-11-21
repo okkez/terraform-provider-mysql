@@ -6,6 +6,7 @@ description: |-
   The mysql_global_variable resource manages a global variable.
   ~> **Note on MySQL: ** MySQL global variables art not persistent https://dev.mysql.com/doc/refman/8.0/en/set-variable.html.
   ~> **Note about destroy: ** destroy will try setting DEFAULT value for the global variable. Unfortunately not every variable support this.
+  -> **Note about value: ** MySQL may report a value in its own form, such as 1 for ON or MINIMAL for minimal. The state keeps the configured value as long as the server reports what MySQL stored for it on apply, and takes the server value when it was changed outside of Terraform. When MySQL stores a value which does not look like the configured one, for example a value capped at its maximum, apply shows a warning. After import, or after upgrading from a version which did not keep the configured value, a value written differently from what MySQL reports shows a diff once.
 ---
 
 # mysql_global_variable (Resource)
@@ -15,6 +16,8 @@ The `mysql_global_variable` resource manages a global variable.
 ~> **Note on MySQL: ** MySQL global variables art [not persistent](https://dev.mysql.com/doc/refman/8.0/en/set-variable.html).
 
 ~> **Note about `destroy`: ** `destroy` will try setting `DEFAULT` value for the global variable. Unfortunately not every variable support this.
+
+-> **Note about `value`: ** MySQL may report a value in its own form, such as `1` for `ON` or `MINIMAL` for `minimal`. The state keeps the configured `value` as long as the server reports what MySQL stored for it on apply, and takes the server value when it was changed outside of Terraform. When MySQL stores a value which does not look like the configured one, for example a value capped at its maximum, apply shows a warning. After import, or after upgrading from a version which did not keep the configured value, a value written differently from what MySQL reports shows a diff once.
 
 ## Example Usage
 
