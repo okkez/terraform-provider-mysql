@@ -28,6 +28,11 @@ func savePrivateString(ctx context.Context, private privateStateSetter, key, val
 	return private.SetKey(ctx, key, encoded)
 }
 
+// clearPrivateKey removes the key from the private state, which the framework does for a nil value.
+func clearPrivateKey(ctx context.Context, private privateStateSetter, key string) diag.Diagnostics {
+	return private.SetKey(ctx, key, nil)
+}
+
 // loadPrivateString reports false when nothing is saved under the key, as for an imported
 // resource or a state written by an earlier version of this provider.
 func loadPrivateString(ctx context.Context, private privateStateGetter, key string) (string, bool, diag.Diagnostics) {

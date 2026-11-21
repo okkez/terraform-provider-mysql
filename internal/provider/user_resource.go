@@ -673,7 +673,7 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 
 	if !data.AuthOption.IsNull() {
 		// The plugin is managed by `auth_option` from now on, so the created one no longer applies.
-		resp.Diagnostics.Append(resp.Private.SetKey(ctx, createdPluginPrivateKey, nil)...)
+		resp.Diagnostics.Append(clearPrivateKey(ctx, resp.Private, createdPluginPrivateKey)...)
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

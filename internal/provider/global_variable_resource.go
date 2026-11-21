@@ -157,7 +157,7 @@ func (r *GlobalVariableResource) Read(ctx context.Context, req resource.ReadRequ
 		data.Value = types.StringValue(value)
 		// The state now holds the server value, so the applied value no longer tells the
 		// configured form. Keeping it would hide a later change back to the applied value.
-		resp.Diagnostics.Append(resp.Private.SetKey(ctx, appliedValuePrivateKey, nil)...)
+		resp.Diagnostics.Append(clearPrivateKey(ctx, resp.Private, appliedValuePrivateKey)...)
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -264,7 +264,7 @@ func applyGlobalVariable(ctx context.Context, db *sql.DB, private privateStateSe
 		// The value is already applied, so do not fail. Without the saved value, Read reports
 		// the value MySQL has, which shows a diff once if it is written differently.
 		diags.AddWarning(fmt.Sprintf("Could not read back global variable (%s)", name), err.Error())
-		diags.Append(private.SetKey(ctx, appliedValuePrivateKey, nil)...)
+		diags.Append(clearPrivateKey(ctx, private, appliedValuePrivateKey)...)
 		return diags
 	}
 
