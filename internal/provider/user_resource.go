@@ -48,7 +48,7 @@ var dualPasswordMinVersion = version.Must(version.NewVersion("8.0.14"))
 // `-commercial`, or a distribution specific one. `go-version` treats the suffix as a
 // prerelease, which sorts below the release itself, so compare only the core version.
 func supportsDualPassword(currentVersion *version.Version) bool {
-	return !currentVersion.Core().LessThan(dualPasswordMinVersion)
+	return currentVersion.Core().GreaterThanOrEqual(dualPasswordMinVersion)
 }
 
 // secondaryPasswordExpression returns the SQL expression reporting whether an account has a
@@ -117,7 +117,7 @@ func containsPlugin(plugins []string, plugin string) bool {
 // created before the policy changed keeps the latter, so both count as the default.
 func defaultAuthenticationPlugins(ctx context.Context, db *sql.DB, currentVersion *version.Version) ([]string, error) {
 	var plugins []string
-	if !currentVersion.Core().LessThan(authenticationPolicyMinVersion) {
+	if currentVersion.Core().GreaterThanOrEqual(authenticationPolicyMinVersion) {
 		// A compatible server may report such a version without having the variable, so treat
 		// an unknown variable as a missing policy.
 		policy, err := readGlobalVariable(ctx, db, "authentication_policy")
@@ -135,7 +135,7 @@ func defaultAuthenticationPlugins(ctx context.Context, db *sql.DB, currentVersio
 
 	// `default_authentication_plugin` is removed in MySQL 8.4, where the default is caching_sha2_password.
 	// See https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_default_authentication_plugin
-	if !currentVersion.Core().LessThan(defaultAuthenticationPluginRemovedVersion) {
+	if currentVersion.Core().GreaterThanOrEqual(defaultAuthenticationPluginRemovedVersion) {
 		return append(plugins, "caching_sha2_password"), nil
 	}
 	plugin, err := readGlobalVariable(ctx, db, "default_authentication_plugin")
