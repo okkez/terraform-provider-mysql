@@ -92,9 +92,16 @@ func firstAuthenticationPolicyPlugin(policy string) (string, bool) {
 const createdPluginPrivateKey = "created_plugin"
 
 func readUserPlugin(ctx context.Context, db *sql.DB, user, host string) (string, error) {
-	var plugin string
-	err := db.QueryRowContext(ctx, `SELECT plugin FROM mysql.user WHERE User = ? AND Host = ?`, user, host).Scan(&plugin)
-	return plugin, err
+	return queryUserColumn[string](ctx, db, "plugin", user, host)
+}
+
+// queryUserColumn reads one expression of the account from `mysql.user`.
+func queryUserColumn[T any](ctx context.Context, db *sql.DB, expression, user, host string) (T, error) {
+	query := fmt.Sprintf(`SELECT %s FROM mysql.user WHERE User = ? AND Host = ?`, expression)
+	tflog.Info(ctx, query, map[string]any{"args": []any{user, host}})
+	var value T
+	err := db.QueryRowContext(ctx, query, user, host).Scan(&value)
+	return value, err
 }
 
 // containsPlugin reports whether plugins has plugin, ignoring letter case. MySQL keeps
@@ -685,17 +692,7 @@ func readHasSecondaryPassword(ctx context.Context, db *sql.DB, currentVersion *v
 		return false, nil
 	}
 
-	var args []interface{}
-	args = append(args, data.Name.ValueString())
-	args = append(args, data.Host.ValueString())
-
-	query := fmt.Sprintf(`SELECT %s FROM mysql.user WHERE User = ? AND Host = ?`, secondaryPasswordExpression(currentVersion))
-	tflog.Info(ctx, query, map[string]any{"args": args})
-	var hasSecondaryPassword bool
-	if err := db.QueryRowContext(ctx, query, args...).Scan(&hasSecondaryPassword); err != nil {
-		return false, err
-	}
-	return hasSecondaryPassword, nil
+	return queryUserColumn[bool](ctx, db, secondaryPasswordExpression(currentVersion), data.Name.ValueString(), data.Host.ValueString())
 }
 
 // stateWithoutDiscardOldPassword returns a copy of `data` with `discard_old_password` unset.
