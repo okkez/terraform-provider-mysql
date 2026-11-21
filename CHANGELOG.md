@@ -1,3 +1,14 @@
+## [v0.4.4](https://github.com/okkez/terraform-provider-mysql/compare/v0.4.3...v0.4.4) - 2026-11-21
+
+### Dependencies
+- chore(deps): bump Songmu/tagpr from 1.20.3 to 1.21.1 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/330
+- chore(deps): bump Songmu/tagpr from 1.21.1 to 1.21.3 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/334
+- chore(deps): bump Songmu/tagpr from 1.21.3 to 1.21.4 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/335
+- chore(deps): bump goreleaser/goreleaser-action from 7.2.3 to 7.3.0 in /.github/actions/release by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/333
+- chore(deps): bump actions/setup-go from 7.0.0 to 7.1.0 in /.github/actions/release by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/338
+- chore(deps): bump actions/setup-go from 7.0.0 to 7.1.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/337
+- chore(deps): bump Songmu/tagpr from 1.21.4 to 1.22.0 by @dependabot[bot] in https://github.com/okkez/terraform-provider-mysql/pull/336
+
 ## [v0.4.3](https://github.com/okkez/terraform-provider-mysql/compare/v0.4.2...v0.4.3) - 2026-09-13
 
 ### Dependencies
