@@ -207,6 +207,9 @@ func testAccGlobalVariableResource_RestoreAfterTest(t *testing.T, name string) {
 	db := testDatabase()
 	originalValue, err := readGlobalVariable(ctx, db, name)
 	if err != nil {
+		if mysqlErrorNumber(err) == unknownSystemVariableErrorNumber {
+			t.Skipf("the server has no %s", name)
+		}
 		t.Fatalf("failed reading %s: %v", name, err)
 	}
 	t.Cleanup(func() {

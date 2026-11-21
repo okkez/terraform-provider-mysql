@@ -718,22 +718,10 @@ func TestAccUserResource_AuthenticationPolicyChangedWithoutSavedPlugin(t *testin
 // and restores the value the server had, which is not necessarily the default one.
 func testAccUserResource_SetAuthenticationPolicy(t *testing.T, policy string) {
 	t.Helper()
-	db := testDatabase()
-	var originalPolicy string
-	if err := db.QueryRow("SELECT @@GLOBAL.authentication_policy").Scan(&originalPolicy); err != nil {
-		if mysqlErrorNumber(err) == unknownSystemVariableErrorNumber {
-			t.Skip("authentication_policy requires MySQL 8.0.27 or later")
-		}
-		t.Fatalf("failed reading authentication_policy: %v", err)
-	}
-	if _, err := db.Exec("SET GLOBAL authentication_policy = ?", policy); err != nil {
+	testAccGlobalVariableResource_RestoreAfterTest(t, "authentication_policy")
+	if err := setGlobalVariable(context.Background(), testDatabase(), "authentication_policy", policy); err != nil {
 		t.Fatalf("failed setting authentication_policy: %v", err)
 	}
-	t.Cleanup(func() {
-		if _, err := db.Exec("SET GLOBAL authentication_policy = ?", originalPolicy); err != nil {
-			t.Errorf("failed restoring authentication_policy: %v", err)
-		}
-	})
 }
 
 // TestAccUserResource_RemovedOutOfBand checks that a user dropped outside of Terraform
