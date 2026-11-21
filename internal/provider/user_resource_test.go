@@ -582,8 +582,6 @@ func TestAccUserResource_CreateFailsOnExistingUser(t *testing.T) {
 	})
 }
 
-// TestAccUserResource_RemovedOutOfBand checks that a user dropped outside of Terraform
-// is removed from the state on refresh, instead of failing the refresh.
 // TestFirstAuthenticationPolicyPlugin checks how the plugin of the first factor is taken
 // out of `@@authentication_policy`.
 func TestFirstAuthenticationPolicyPlugin(t *testing.T) {
@@ -617,12 +615,20 @@ func TestAccUserResource_DefaultPluginFromAuthenticationPolicy(t *testing.T) {
 		PreCheck: func() {
 			testAccPreCheck(t)
 			db := testDatabase()
+			// Restore the value the server had, which is not necessarily the default one.
+			var originalPolicy string
+			if err := db.QueryRow("SELECT @@GLOBAL.authentication_policy").Scan(&originalPolicy); err != nil {
+				if mysqlErrorNumber(err) == unknownSystemVariableErrorNumber {
+					t.Skip("authentication_policy requires MySQL 8.0.27 or later")
+				}
+				t.Fatalf("failed reading authentication_policy: %v", err)
+			}
 			if _, err := db.Exec("SET GLOBAL authentication_policy = 'sha256_password,,'"); err != nil {
 				t.Fatalf("failed setting authentication_policy: %v", err)
 			}
 			t.Cleanup(func() {
-				if _, err := db.Exec("SET GLOBAL authentication_policy = '*,,'"); err != nil {
-					t.Errorf("failed resetting authentication_policy: %v", err)
+				if _, err := db.Exec("SET GLOBAL authentication_policy = ?", originalPolicy); err != nil {
+					t.Errorf("failed restoring authentication_policy: %v", err)
 				}
 			})
 		},
@@ -636,6 +642,8 @@ func TestAccUserResource_DefaultPluginFromAuthenticationPolicy(t *testing.T) {
 	})
 }
 
+// TestAccUserResource_RemovedOutOfBand checks that a user dropped outside of Terraform
+// is removed from the state on refresh, instead of failing the refresh.
 func TestAccUserResource_RemovedOutOfBand(t *testing.T) {
 	user := NewRandomUser("test-user", "%")
 	t.Logf("%+v\n", user)
