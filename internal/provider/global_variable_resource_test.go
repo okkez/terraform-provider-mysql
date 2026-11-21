@@ -181,6 +181,9 @@ func TestGlobalVariableValueEquivalent(t *testing.T) {
 // testAccGlobalVariableResource_RestoreAfterTest restores the value the server had before the
 // test, because destroying the resource sets the default value, which is not necessarily the
 // value the server was configured with.
+//
+// Call it from PreCheck: unlike code placed before resource.Test, PreCheck runs only when
+// acceptance tests are enabled, so a unit test run never connects to MySQL.
 func testAccGlobalVariableResource_RestoreAfterTest(t *testing.T, name string) {
 	t.Helper()
 	ctx := context.Background()
