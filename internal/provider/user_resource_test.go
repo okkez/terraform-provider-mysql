@@ -659,6 +659,39 @@ func TestAccUserResource_AuthenticationPolicyChangedAfterCreate(t *testing.T) {
 	})
 }
 
+// TestAccUserResource_AuthenticationPolicyChangedWithoutSavedPlugin checks the same as
+// TestAccUserResource_AuthenticationPolicyChangedAfterCreate for a user without the saved
+// plugin, as for an imported user or a state written by an earlier version.
+func TestAccUserResource_AuthenticationPolicyChangedWithoutSavedPlugin(t *testing.T) {
+	user := NewRandomUser("test-user", "%")
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+			// Create the user outside of Terraform, so that it is imported without a saved plugin.
+			if _, err := testDatabase().Exec(fmt.Sprintf("CREATE USER '%s'@'%s'", user.GetName(), user.GetHost())); err != nil {
+				t.Fatalf("failed creating user %s: %v", user.GetID(), err)
+			}
+		},
+		CheckDestroy:             testAccUserResource_CheckDestroy([]UserModel{user}),
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:             testAccUserResource_Config(t, user.GetName(), ""),
+				ResourceName:       "mysql_user.test",
+				ImportState:        true,
+				ImportStateId:      user.GetID(),
+				ImportStatePersist: true,
+			},
+			{
+				PreConfig: func() {
+					testAccUserResource_SetAuthenticationPolicy(t, "sha256_password,,")
+				},
+				Config: testAccUserResource_Config(t, user.GetName(), ""),
+			},
+		},
+	})
+}
+
 // testAccUserResource_SetAuthenticationPolicy changes `authentication_policy` for the test,
 // and restores the value the server had, which is not necessarily the default one.
 func testAccUserResource_SetAuthenticationPolicy(t *testing.T, policy string) {

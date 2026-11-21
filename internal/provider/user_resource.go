@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/hashicorp/go-version"
@@ -99,29 +100,32 @@ func readUserPlugin(ctx context.Context, db *sql.DB, user, host string) (string,
 }
 
 // defaultAuthenticationPlugin returns the plugin `CREATE USER` uses without `IDENTIFIED WITH`.
-func defaultAuthenticationPlugin(ctx context.Context, db *sql.DB, currentVersion *version.Version) (string, error) {
-	// `authentication_policy` takes precedence over `default_authentication_plugin` unless its
-	// first element is `*`.
+// defaultAuthenticationPlugins returns the plugins a user created without `IDENTIFIED WITH`
+// may have got: the one `authentication_policy` names now, and the one
+// `default_authentication_plugin` names, which applies when the policy defers to it. A user
+// created before the policy changed keeps the latter, so both count as the default.
+func defaultAuthenticationPlugins(ctx context.Context, db *sql.DB, currentVersion *version.Version) ([]string, error) {
+	var plugins []string
 	if !currentVersion.Core().LessThan(authenticationPolicyMinVersion) {
 		var policy string
 		if err := db.QueryRowContext(ctx, "SELECT @@authentication_policy").Scan(&policy); err != nil {
-			return "", err
+			return nil, err
 		}
 		if plugin, ok := firstAuthenticationPolicyPlugin(policy); ok {
-			return plugin, nil
+			plugins = append(plugins, plugin)
 		}
 	}
 
 	// `default_authentication_plugin` is removed in MySQL 8.4, where the default is caching_sha2_password.
 	// See https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_default_authentication_plugin
 	if !currentVersion.Core().LessThan(defaultAuthenticationPluginRemovedVersion) {
-		return "caching_sha2_password", nil
+		return append(plugins, "caching_sha2_password"), nil
 	}
 	var plugin string
 	if err := db.QueryRowContext(ctx, "SELECT @@default_authentication_plugin").Scan(&plugin); err != nil {
-		return "", err
+		return nil, err
 	}
-	return plugin, nil
+	return append(plugins, plugin), nil
 }
 
 var (
@@ -446,20 +450,27 @@ WHERE
 	if data.AuthOption.IsNull() {
 		// A user created without `auth_option` gets the default plugin, so `auth_option` stays
 		// null unless the user has another plugin now.
-		expectedPlugin, saved, diags := loadPrivateString(ctx, req.Private, createdPluginPrivateKey)
+		createdPlugin, saved, diags := loadPrivateString(ctx, req.Private, createdPluginPrivateKey)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
+		expectedPlugins := []string{createdPlugin}
 		if !saved {
-			expectedPlugin, err = defaultAuthenticationPlugin(ctx, db, currentVersion)
+			// An imported user or a state written by an earlier version has no saved plugin.
+			expectedPlugins, err = defaultAuthenticationPlugins(ctx, db, currentVersion)
 			if err != nil {
 				resp.Diagnostics.AddError("Failed to query default authentication plugin", err.Error())
 				return
 			}
 		}
-		tflog.Info(ctx, fmt.Sprintf("expected authentication plugin=%s", expectedPlugin))
-		if plugin != expectedPlugin {
+		tflog.Info(ctx, fmt.Sprintf("expected authentication plugins=%v", expectedPlugins))
+		if slices.Contains(expectedPlugins, plugin) {
+			if !saved {
+				// Save it, so that a later change of the default plugin leaves no diff.
+				resp.Diagnostics.Append(savePrivateString(ctx, resp.Private, createdPluginPrivateKey, plugin)...)
+			}
+		} else {
 			attributes := map[string]attr.Value{
 				"plugin":                  types.StringValue(plugin),
 				"auth_string":             types.StringNull(),
