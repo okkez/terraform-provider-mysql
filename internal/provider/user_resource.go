@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -92,39 +91,6 @@ func firstAuthenticationPolicyPlugin(policy string) (string, bool) {
 // `auth_option` got. The default plugin can change later with `authentication_policy`, while
 // the user keeps the plugin it was created with, so Read compares against this one.
 const createdPluginPrivateKey = "created_plugin"
-
-type privateStateGetter interface {
-	GetKey(ctx context.Context, key string) ([]byte, diag.Diagnostics)
-}
-
-type privateStateSetter interface {
-	SetKey(ctx context.Context, key string, value []byte) diag.Diagnostics
-}
-
-func saveCreatedPlugin(ctx context.Context, private privateStateSetter, plugin string) diag.Diagnostics {
-	value, err := json.Marshal(plugin)
-	if err != nil {
-		var diags diag.Diagnostics
-		diags.AddError("Failed encoding the created plugin", err.Error())
-		return diags
-	}
-	return private.SetKey(ctx, createdPluginPrivateKey, value)
-}
-
-// loadCreatedPlugin reports false when no plugin was saved, as for an imported user or a
-// state written by an earlier version of this provider.
-func loadCreatedPlugin(ctx context.Context, private privateStateGetter) (string, bool, diag.Diagnostics) {
-	value, diags := private.GetKey(ctx, createdPluginPrivateKey)
-	if diags.HasError() || len(value) == 0 {
-		return "", false, diags
-	}
-	var plugin string
-	if err := json.Unmarshal(value, &plugin); err != nil {
-		diags.AddError("Failed decoding the created plugin", err.Error())
-		return "", false, diags
-	}
-	return plugin, true, diags
-}
 
 func readUserPlugin(ctx context.Context, db *sql.DB, user, host string) (string, error) {
 	var plugin string
@@ -410,7 +376,7 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 	if data.AuthOption.IsNull() {
 		if plugin, err := readUserPlugin(ctx, db, data.Name.ValueString(), data.Host.ValueString()); err == nil {
-			resp.Diagnostics.Append(saveCreatedPlugin(ctx, resp.Private, plugin)...)
+			resp.Diagnostics.Append(savePrivateString(ctx, resp.Private, createdPluginPrivateKey, plugin)...)
 		} else {
 			// The user is already created, so keep it in the state. Read then compares the
 			// plugin against the current default plugin instead.
@@ -480,7 +446,7 @@ WHERE
 	if data.AuthOption.IsNull() {
 		// A user created without `auth_option` gets the default plugin, so `auth_option` stays
 		// null unless the user has another plugin now.
-		expectedPlugin, saved, diags := loadCreatedPlugin(ctx, req.Private)
+		expectedPlugin, saved, diags := loadPrivateString(ctx, req.Private, createdPluginPrivateKey)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
