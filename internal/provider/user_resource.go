@@ -399,12 +399,13 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 	data.HasSecondaryPassword = types.BoolValue(false)
 
 	if data.AuthOption.IsNull() {
-		if plugin, err := readUserPlugin(ctx, db, data.Name.ValueString(), data.Host.ValueString()); err == nil {
-			resp.Diagnostics.Append(savePrivateString(ctx, resp.Private, createdPluginPrivateKey, plugin)...)
-		} else {
+		plugin, err := readUserPlugin(ctx, db, data.Name.ValueString(), data.Host.ValueString())
+		if err != nil {
 			// The user is already created, so keep it in the state. Read then compares the
-			// plugin against the current default plugin instead.
+			// plugin against the default plugins instead.
 			resp.Diagnostics.AddWarning("Could not read the plugin of the created user", err.Error())
+		} else {
+			resp.Diagnostics.Append(savePrivateString(ctx, resp.Private, createdPluginPrivateKey, plugin)...)
 		}
 	}
 
