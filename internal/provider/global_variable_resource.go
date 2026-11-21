@@ -282,8 +282,8 @@ func warnIfStoredDifferently(name, configuredValue, appliedValue string) diag.Di
 }
 
 // wordListPattern matches a value made only of words separated by commas, such as an enum
-// value or `sql_mode`.
-var wordListPattern = regexp.MustCompile(`^[A-Za-z0-9_,]*$`)
+// value like `READ-COMMITTED` or `sql_mode`.
+var wordListPattern = regexp.MustCompile(`^[A-Za-z0-9_,-]*$`)
 
 // globalVariableValueEquivalent guesses whether MySQL stored the configured value only in its
 // own form. It treats `ON`/`TRUE` as `1` and `OFF`/`FALSE` as `0`, and compares comma separated

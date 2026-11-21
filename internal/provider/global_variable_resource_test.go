@@ -187,6 +187,7 @@ func TestGlobalVariableValueEquivalent(t *testing.T) {
 		{"0", "ON", false},
 		// Words separated by commas, ignoring letter case and order.
 		{"MINIMAL", "minimal", true},
+		{"READ-COMMITTED", "read-committed", true},
 		{"ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION", "STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION,ONLY_FULL_GROUP_BY", true},
 		{"STRICT_TRANS_TABLES", "STRICT_TRANS_TABLES,ONLY_FULL_GROUP_BY", false},
 		// A number capped by MySQL.
