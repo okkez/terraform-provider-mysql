@@ -584,6 +584,58 @@ func TestAccUserResource_CreateFailsOnExistingUser(t *testing.T) {
 
 // TestAccUserResource_RemovedOutOfBand checks that a user dropped outside of Terraform
 // is removed from the state on refresh, instead of failing the refresh.
+// TestFirstAuthenticationPolicyPlugin checks how the plugin of the first factor is taken
+// out of `@@authentication_policy`.
+func TestFirstAuthenticationPolicyPlugin(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		policy     string
+		wantPlugin string
+		wantOK     bool
+	}{
+		{"*,,", "", false},
+		{"*", "", false},
+		{"", "", false},
+		{"sha256_password,,", "sha256_password", true},
+		{"*:caching_sha2_password,,", "caching_sha2_password", true},
+		{" mysql_native_password , ", "mysql_native_password", true},
+	}
+	for _, tt := range tests {
+		plugin, ok := firstAuthenticationPolicyPlugin(tt.policy)
+		if plugin != tt.wantPlugin || ok != tt.wantOK {
+			t.Errorf("firstAuthenticationPolicyPlugin(%q): got (%q, %t), want (%q, %t)", tt.policy, plugin, ok, tt.wantPlugin, tt.wantOK)
+		}
+	}
+}
+
+// TestAccUserResource_DefaultPluginFromAuthenticationPolicy checks that a user without
+// `auth_option` leaves no diff when `authentication_policy` makes a plugin other than
+// `caching_sha2_password` the default one.
+func TestAccUserResource_DefaultPluginFromAuthenticationPolicy(t *testing.T) {
+	user := NewRandomUser("test-user", "%")
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+			db := testDatabase()
+			if _, err := db.Exec("SET GLOBAL authentication_policy = 'sha256_password,,'"); err != nil {
+				t.Fatalf("failed setting authentication_policy: %v", err)
+			}
+			t.Cleanup(func() {
+				if _, err := db.Exec("SET GLOBAL authentication_policy = '*,,'"); err != nil {
+					t.Errorf("failed resetting authentication_policy: %v", err)
+				}
+			})
+		},
+		CheckDestroy:             testAccUserResource_CheckDestroy([]UserModel{user}),
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccUserResource_Config(t, user.GetName(), ""),
+			},
+		},
+	})
+}
+
 func TestAccUserResource_RemovedOutOfBand(t *testing.T) {
 	user := NewRandomUser("test-user", "%")
 	t.Logf("%+v\n", user)

@@ -69,6 +69,51 @@ func checkDualPasswordSupport(currentVersion *version.Version) error {
 	return nil
 }
 
+// firstAuthenticationPolicyPlugin returns the plugin which `@@authentication_policy` names for
+// the first authentication factor. It reports false for `*` or an empty element, which means
+// the plugin is not fixed by the policy.
+// See https://dev.mysql.com/doc/refman/8.4/en/server-system-variables.html#sysvar_authentication_policy
+func firstAuthenticationPolicyPlugin(policy string) (string, bool) {
+	first, _, _ := strings.Cut(policy, ",")
+	first = strings.TrimSpace(first)
+	if first == "" || first == "*" {
+		return "", false
+	}
+	if plugin, ok := strings.CutPrefix(first, "*:"); ok {
+		return plugin, true
+	}
+	return first, true
+}
+
+// defaultAuthenticationPlugin returns the plugin `CREATE USER` uses without `IDENTIFIED WITH`.
+func defaultAuthenticationPlugin(ctx context.Context, db *sql.DB) (string, error) {
+	// `authentication_policy` exists from MySQL 8.0.27, and takes precedence over
+	// `default_authentication_plugin` unless its first element is `*`.
+	var policy string
+	err := db.QueryRowContext(ctx, "SELECT @@authentication_policy").Scan(&policy)
+	if err == nil {
+		if plugin, ok := firstAuthenticationPolicyPlugin(policy); ok {
+			return plugin, nil
+		}
+	} else if mysqlErrorNumber(err) != unknownSystemVariableErrorNumber {
+		return "", err
+	}
+
+	// The mysql_native_password authentication plugin is deprecated as of MySQL 8.0.34, disabled by default in MySQL 8.4,
+	// and removed as of MySQL 9.0.0. `default_authentication_plugin` is removed in MySQL 8.4, where the default is
+	// caching_sha2_password.
+	// See https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_default_authentication_plugin
+	var plugin string
+	err = db.QueryRowContext(ctx, "SELECT @@default_authentication_plugin").Scan(&plugin)
+	if err == nil {
+		return plugin, nil
+	}
+	if mysqlErrorNumber(err) == unknownSystemVariableErrorNumber {
+		return "caching_sha2_password", nil
+	}
+	return "", err
+}
+
 func NewUserResource() resource.Resource {
 	return &UserResource{}
 }
@@ -371,27 +416,15 @@ WHERE
 	data.Lock = types.BoolValue(accountLocked == "Y")
 
 	if data.AuthOption.IsNull() {
-		// https://dev.mysql.com/doc/refman/8.4/en/native-pluggable-authentication.html
-		// The mysql_native_password authentication plugin is deprecated as of MySQL 8.0.34, disabled by default in MySQL 8.4,
-		// and removed as of MySQL 9.0.0.
-		// See https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_default_authentication_plugin
-		var defaultAuthenticationPlugin string
-		err := db.QueryRowContext(ctx, "SELECT @@default_authentication_plugin").Scan(&defaultAuthenticationPlugin)
+		// A user created without `auth_option` uses the default plugin, so `auth_option` stays
+		// null unless the user was given another plugin.
+		defaultPlugin, err := defaultAuthenticationPlugin(ctx, db)
 		if err != nil {
-			if mysqlErrorNumber(err) == unknownSystemVariableErrorNumber {
-				// ER_UNKNOWN_SYSTEM_VARIABLE: For MySQL 8.4+ where default_authentication_plugin is removed
-				// Default authentication plugin is caching_sha2_password
-				defaultAuthenticationPlugin = "caching_sha2_password"
-				tflog.Info(ctx, fmt.Sprintf("Using hardcoded default plugin for MySQL 8.4+: %s", defaultAuthenticationPlugin))
-			} else {
-				// Other database errors should be surfaced
-				resp.Diagnostics.AddError("Failed to query default authentication plugin", err.Error())
-				return
-			}
-		} else {
-			tflog.Info(ctx, fmt.Sprintf("default_authentication_plugin=%s", defaultAuthenticationPlugin))
+			resp.Diagnostics.AddError("Failed to query default authentication plugin", err.Error())
+			return
 		}
-		if plugin != defaultAuthenticationPlugin {
+		tflog.Info(ctx, fmt.Sprintf("default authentication plugin=%s", defaultPlugin))
+		if plugin != defaultPlugin {
 			attributes := map[string]attr.Value{
 				"plugin":                  types.StringValue(plugin),
 				"auth_string":             types.StringNull(),
