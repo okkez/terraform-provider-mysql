@@ -92,23 +92,25 @@ func (v semanticStringValue[E]) Equal(o attr.Value) bool {
 	return v.StringValue.Equal(other.StringValue)
 }
 
-func (v semanticStringValue[E]) StringSemanticEquals(_ context.Context, newValuable basetypes.StringValuable) (bool, diag.Diagnostics) {
+// StringSemanticEquals is called on the proposed new value with the prior value, which the
+// framework keeps in the state when this reports true.
+func (v semanticStringValue[E]) StringSemanticEquals(_ context.Context, priorValuable basetypes.StringValuable) (bool, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
-	newValue, ok := newValuable.(semanticStringValue[E])
+	priorValue, ok := priorValuable.(semanticStringValue[E])
 	if !ok {
 		diags.AddError(
 			"Semantic Equality Check Error",
 			"An unexpected value type was received while performing semantic equality checks. "+
 				"Please report this to the provider developers.\n\n"+
 				"Expected Value Type: "+fmt.Sprintf("%T", v)+"\n"+
-				"Got Value Type: "+fmt.Sprintf("%T", newValuable),
+				"Got Value Type: "+fmt.Sprintf("%T", priorValuable),
 		)
 		return false, diags
 	}
 
 	var e E
-	return e.equivalent(v.ValueString(), newValue.ValueString()), diags
+	return e.equivalent(v.ValueString(), priorValue.ValueString()), diags
 }
 
 // Character set and collation names.
