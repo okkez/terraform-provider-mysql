@@ -146,9 +146,7 @@ func defaultAuthenticationPlugin(ctx context.Context, db *sql.DB, currentVersion
 		}
 	}
 
-	// The mysql_native_password authentication plugin is deprecated as of MySQL 8.0.34, disabled by default in MySQL 8.4,
-	// and removed as of MySQL 9.0.0. `default_authentication_plugin` is removed in MySQL 8.4, where the default is
-	// caching_sha2_password.
+	// `default_authentication_plugin` is removed in MySQL 8.4, where the default is caching_sha2_password.
 	// See https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_default_authentication_plugin
 	if !currentVersion.Core().LessThan(defaultAuthenticationPluginRemovedVersion) {
 		return "caching_sha2_password", nil
