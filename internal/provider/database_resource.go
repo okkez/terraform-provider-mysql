@@ -67,7 +67,8 @@ func (r *databaseResource) Schema(ctx context.Context, req resource.SchemaReques
 				Default:             stringdefault.StaticString("utf8mb4"),
 			},
 			"default_collation": schema.StringAttribute{
-				MarkdownDescription: "The default collation. Defaults to `utf8mb4_0900_ai_ci`.",
+				MarkdownDescription: "The default collation. Defaults to `utf8mb4_0900_ai_ci`. " +
+					"It must belong to `default_character_set`, so set it as well when setting `default_character_set` to other than `utf8mb4`.",
 				CustomType:          CharsetNameType{},
 				Optional:            true,
 				Computed:            true,
