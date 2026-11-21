@@ -107,12 +107,18 @@ func readUserPlugin(ctx context.Context, db *sql.DB, user, host string) (string,
 func defaultAuthenticationPlugins(ctx context.Context, db *sql.DB, currentVersion *version.Version) ([]string, error) {
 	var plugins []string
 	if !currentVersion.Core().LessThan(authenticationPolicyMinVersion) {
+		// A compatible server may report such a version without having the variable, so treat
+		// an unknown variable as a missing policy.
 		policy, err := readGlobalVariable(ctx, db, "authentication_policy")
-		if err != nil {
+		switch {
+		case err == nil:
+			if plugin, ok := firstAuthenticationPolicyPlugin(policy); ok {
+				plugins = append(plugins, plugin)
+			}
+		case mysqlErrorNumber(err) == unknownSystemVariableErrorNumber:
+			// No policy to follow.
+		default:
 			return nil, err
-		}
-		if plugin, ok := firstAuthenticationPolicyPlugin(policy); ok {
-			plugins = append(plugins, plugin)
 		}
 	}
 
@@ -123,6 +129,9 @@ func defaultAuthenticationPlugins(ctx context.Context, db *sql.DB, currentVersio
 	}
 	plugin, err := readGlobalVariable(ctx, db, "default_authentication_plugin")
 	if err != nil {
+		if mysqlErrorNumber(err) == unknownSystemVariableErrorNumber {
+			return append(plugins, "caching_sha2_password"), nil
+		}
 		return nil, err
 	}
 	return append(plugins, plugin), nil
