@@ -33,8 +33,8 @@ type GlobalVariableResource struct {
 
 // GlobalVariableResourceModel describes the resource data model.
 type GlobalVariableResourceModel struct {
-	ID    types.String `tfsdk:"id"`
-	Name  types.String `tfsdk:"name"`
+	ID    types.String             `tfsdk:"id"`
+	Name  types.String             `tfsdk:"name"`
 	Value GlobalVariableValueValue `tfsdk:"value"`
 }
 

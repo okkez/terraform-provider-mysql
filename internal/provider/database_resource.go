@@ -31,8 +31,8 @@ type databaseResource struct {
 
 // databaseResourceModel describes the resource data model.
 type databaseResourceModel struct {
-	Id                  types.String `tfsdk:"id"`
-	Name                types.String `tfsdk:"name"`
+	Id                  types.String     `tfsdk:"id"`
+	Name                types.String     `tfsdk:"name"`
 	DefaultCharacterSet CharsetNameValue `tfsdk:"default_character_set"`
 	DefaultCollation    CharsetNameValue `tfsdk:"default_collation"`
 }
