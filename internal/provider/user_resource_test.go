@@ -582,6 +582,28 @@ func TestAccUserResource_CreateFailsOnExistingUser(t *testing.T) {
 	})
 }
 
+// TestContainsPlugin checks that plugin names are compared ignoring letter case, because
+// `authentication_policy` keeps the letter case as written while `mysql.user.plugin` holds the
+// canonical name, which is lowercase for built-in plugins but not for every plugin.
+func TestContainsPlugin(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		plugins []string
+		plugin  string
+		want    bool
+	}{
+		{[]string{"SHA256_PASSWORD"}, "sha256_password", true},
+		{[]string{"caching_sha2_password", "AWSAuthenticationPlugin"}, "AWSAuthenticationPlugin", true},
+		{[]string{"caching_sha2_password"}, "sha256_password", false},
+		{nil, "caching_sha2_password", false},
+	}
+	for _, tt := range tests {
+		if got := containsPlugin(tt.plugins, tt.plugin); got != tt.want {
+			t.Errorf("containsPlugin(%q, %q): got %t, want %t", tt.plugins, tt.plugin, got, tt.want)
+		}
+	}
+}
+
 // TestFirstAuthenticationPolicyPlugin checks how the plugin of the first factor is taken
 // out of `@@authentication_policy`.
 func TestFirstAuthenticationPolicyPlugin(t *testing.T) {
@@ -597,9 +619,9 @@ func TestFirstAuthenticationPolicyPlugin(t *testing.T) {
 		{"sha256_password,,", "sha256_password", true},
 		{"*:caching_sha2_password,,", "caching_sha2_password", true},
 		{" mysql_native_password , ", "mysql_native_password", true},
-		// MySQL keeps the letter case of the policy but stores plugin names in lowercase.
-		{"SHA256_PASSWORD,,", "sha256_password", true},
-		{"*:Caching_Sha2_Password,,", "caching_sha2_password", true},
+		// The letter case is kept as written; containsPlugin ignores it.
+		{"SHA256_PASSWORD,,", "SHA256_PASSWORD", true},
+		{"*:AWSAuthenticationPlugin,,", "AWSAuthenticationPlugin", true},
 	}
 	for _, tt := range tests {
 		plugin, ok := firstAuthenticationPolicyPlugin(tt.policy)

@@ -76,9 +76,7 @@ func checkDualPasswordSupport(currentVersion *version.Version) error {
 // See https://dev.mysql.com/doc/refman/8.4/en/server-system-variables.html#sysvar_authentication_policy
 func firstAuthenticationPolicyPlugin(policy string) (string, bool) {
 	first, _, _ := strings.Cut(policy, ",")
-	// MySQL keeps the letter case of the policy, while `mysql.user.plugin` holds plugin names
-	// in lowercase.
-	first = strings.ToLower(strings.TrimSpace(first))
+	first = strings.TrimSpace(first)
 	if first == "" || first == "*" {
 		return "", false
 	}
@@ -100,6 +98,13 @@ func readUserPlugin(ctx context.Context, db *sql.DB, user, host string) (string,
 }
 
 // defaultAuthenticationPlugin returns the plugin `CREATE USER` uses without `IDENTIFIED WITH`.
+// containsPlugin reports whether plugins has plugin, ignoring letter case. MySQL keeps
+// `authentication_policy` as written, while `mysql.user.plugin` holds the canonical name, which
+// is lowercase for built-in plugins but not for others such as AWSAuthenticationPlugin.
+func containsPlugin(plugins []string, plugin string) bool {
+	return slices.ContainsFunc(plugins, func(p string) bool { return strings.EqualFold(p, plugin) })
+}
+
 // defaultAuthenticationPlugins returns the plugins a user created without `IDENTIFIED WITH`
 // may have got: the one `authentication_policy` names now, and the one
 // `default_authentication_plugin` names, which applies when the policy defers to it. A user
@@ -474,7 +479,7 @@ WHERE
 			}
 		}
 		tflog.Info(ctx, fmt.Sprintf("expected authentication plugins=%v", expectedPlugins))
-		if slices.Contains(expectedPlugins, plugin) {
+		if containsPlugin(expectedPlugins, plugin) {
 			if !saved {
 				// Save it, so that a later change of the default plugin leaves no diff.
 				resp.Diagnostics.Append(savePrivateString(ctx, resp.Private, createdPluginPrivateKey, plugin)...)
