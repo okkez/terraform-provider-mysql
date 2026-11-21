@@ -597,6 +597,9 @@ func TestFirstAuthenticationPolicyPlugin(t *testing.T) {
 		{"sha256_password,,", "sha256_password", true},
 		{"*:caching_sha2_password,,", "caching_sha2_password", true},
 		{" mysql_native_password , ", "mysql_native_password", true},
+		// MySQL keeps the letter case of the policy but stores plugin names in lowercase.
+		{"SHA256_PASSWORD,,", "sha256_password", true},
+		{"*:Caching_Sha2_Password,,", "caching_sha2_password", true},
 	}
 	for _, tt := range tests {
 		plugin, ok := firstAuthenticationPolicyPlugin(tt.policy)

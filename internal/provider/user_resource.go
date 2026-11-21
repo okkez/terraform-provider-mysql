@@ -76,7 +76,9 @@ func checkDualPasswordSupport(currentVersion *version.Version) error {
 // See https://dev.mysql.com/doc/refman/8.4/en/server-system-variables.html#sysvar_authentication_policy
 func firstAuthenticationPolicyPlugin(policy string) (string, bool) {
 	first, _, _ := strings.Cut(policy, ",")
-	first = strings.TrimSpace(first)
+	// MySQL keeps the letter case of the policy, while `mysql.user.plugin` holds plugin names
+	// in lowercase.
+	first = strings.ToLower(strings.TrimSpace(first))
 	if first == "" || first == "*" {
 		return "", false
 	}
