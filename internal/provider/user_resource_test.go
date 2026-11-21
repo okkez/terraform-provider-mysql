@@ -617,23 +617,7 @@ func TestAccUserResource_DefaultPluginFromAuthenticationPolicy(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck: func() {
 			testAccPreCheck(t)
-			db := testDatabase()
-			// Restore the value the server had, which is not necessarily the default one.
-			var originalPolicy string
-			if err := db.QueryRow("SELECT @@GLOBAL.authentication_policy").Scan(&originalPolicy); err != nil {
-				if mysqlErrorNumber(err) == unknownSystemVariableErrorNumber {
-					t.Skip("authentication_policy requires MySQL 8.0.27 or later")
-				}
-				t.Fatalf("failed reading authentication_policy: %v", err)
-			}
-			if _, err := db.Exec("SET GLOBAL authentication_policy = 'sha256_password,,'"); err != nil {
-				t.Fatalf("failed setting authentication_policy: %v", err)
-			}
-			t.Cleanup(func() {
-				if _, err := db.Exec("SET GLOBAL authentication_policy = ?", originalPolicy); err != nil {
-					t.Errorf("failed restoring authentication_policy: %v", err)
-				}
-			})
+			testAccUserResource_SetAuthenticationPolicy(t, "sha256_password,,")
 		},
 		CheckDestroy:             testAccUserResource_CheckDestroy([]UserModel{user}),
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
