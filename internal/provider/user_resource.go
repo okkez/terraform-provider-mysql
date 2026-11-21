@@ -97,7 +97,6 @@ func readUserPlugin(ctx context.Context, db *sql.DB, user, host string) (string,
 	return plugin, err
 }
 
-// defaultAuthenticationPlugin returns the plugin `CREATE USER` uses without `IDENTIFIED WITH`.
 // containsPlugin reports whether plugins has plugin, ignoring letter case. MySQL keeps
 // `authentication_policy` as written, while `mysql.user.plugin` holds the canonical name, which
 // is lowercase for built-in plugins but not for others such as AWSAuthenticationPlugin.
