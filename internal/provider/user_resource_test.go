@@ -641,6 +641,13 @@ func TestAccUserResource_DefaultPluginFromAuthenticationPolicy(t *testing.T) {
 			{
 				Config: testAccUserResource_Config(t, user.GetName(), ""),
 			},
+			// An imported user has no saved plugin, so Read compares with the default plugin
+			// taken from `authentication_policy`.
+			{
+				ResourceName:      "mysql_user.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 		},
 	})
 }

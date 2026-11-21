@@ -133,33 +133,40 @@ func readUserPlugin(ctx context.Context, db *sql.DB, user, host string) (string,
 }
 
 // defaultAuthenticationPlugin returns the plugin `CREATE USER` uses without `IDENTIFIED WITH`.
-func defaultAuthenticationPlugin(ctx context.Context, db *sql.DB) (string, error) {
-	// `authentication_policy` exists from MySQL 8.0.27, and takes precedence over
-	// `default_authentication_plugin` unless its first element is `*`.
-	var policy string
-	err := db.QueryRowContext(ctx, "SELECT @@authentication_policy").Scan(&policy)
-	if err == nil {
+func defaultAuthenticationPlugin(ctx context.Context, db *sql.DB, currentVersion *version.Version) (string, error) {
+	// `authentication_policy` takes precedence over `default_authentication_plugin` unless its
+	// first element is `*`.
+	if !currentVersion.Core().LessThan(authenticationPolicyMinVersion) {
+		var policy string
+		if err := db.QueryRowContext(ctx, "SELECT @@authentication_policy").Scan(&policy); err != nil {
+			return "", err
+		}
 		if plugin, ok := firstAuthenticationPolicyPlugin(policy); ok {
 			return plugin, nil
 		}
-	} else if mysqlErrorNumber(err) != unknownSystemVariableErrorNumber {
-		return "", err
 	}
 
 	// The mysql_native_password authentication plugin is deprecated as of MySQL 8.0.34, disabled by default in MySQL 8.4,
 	// and removed as of MySQL 9.0.0. `default_authentication_plugin` is removed in MySQL 8.4, where the default is
 	// caching_sha2_password.
 	// See https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_default_authentication_plugin
-	var plugin string
-	err = db.QueryRowContext(ctx, "SELECT @@default_authentication_plugin").Scan(&plugin)
-	if err == nil {
-		return plugin, nil
-	}
-	if mysqlErrorNumber(err) == unknownSystemVariableErrorNumber {
+	if !currentVersion.Core().LessThan(defaultAuthenticationPluginRemovedVersion) {
 		return "caching_sha2_password", nil
 	}
-	return "", err
+	var plugin string
+	if err := db.QueryRowContext(ctx, "SELECT @@default_authentication_plugin").Scan(&plugin); err != nil {
+		return "", err
+	}
+	return plugin, nil
 }
+
+var (
+	// authenticationPolicyMinVersion is the first MySQL version which has `authentication_policy`.
+	authenticationPolicyMinVersion = version.Must(version.NewVersion("8.0.27"))
+	// defaultAuthenticationPluginRemovedVersion is the first MySQL version which no longer has
+	// `default_authentication_plugin`.
+	defaultAuthenticationPluginRemovedVersion = version.Must(version.NewVersion("8.4.0"))
+)
 
 func NewUserResource() resource.Resource {
 	return &UserResource{}
@@ -481,7 +488,7 @@ WHERE
 			return
 		}
 		if !saved {
-			expectedPlugin, err = defaultAuthenticationPlugin(ctx, db)
+			expectedPlugin, err = defaultAuthenticationPlugin(ctx, db, currentVersion)
 			if err != nil {
 				resp.Diagnostics.AddError("Failed to query default authentication plugin", err.Error())
 				return
