@@ -109,8 +109,13 @@ func (v semanticStringValue[E]) StringSemanticEquals(_ context.Context, newValua
 
 type charsetNameEquivalence struct{}
 
-func (charsetNameEquivalence) typeName() string            { return "CharsetNameType" }
-func (charsetNameEquivalence) equivalent(a, b string) bool { return charsetNameEquivalent(a, b) }
+func (charsetNameEquivalence) typeName() string { return "CharsetNameType" }
+
+// equivalent ignores letter case and treats `utf8` as `utf8mb3`, which is what MySQL 8.0 and
+// later report for it.
+func (charsetNameEquivalence) equivalent(a, b string) bool {
+	return normalizeCharsetName(a) == normalizeCharsetName(b)
+}
 
 type (
 	CharsetNameType  = semanticStringType[charsetNameEquivalence]
@@ -119,12 +124,6 @@ type (
 
 func NewCharsetNameValue(value string) CharsetNameValue {
 	return CharsetNameValue{StringValue: basetypes.NewStringValue(value)}
-}
-
-// charsetNameEquivalent ignores letter case and treats `utf8` as `utf8mb3`, which is what
-// MySQL 8.0 and later report for it.
-func charsetNameEquivalent(a, b string) bool {
-	return normalizeCharsetName(a) == normalizeCharsetName(b)
 }
 
 func normalizeCharsetName(name string) string {
@@ -142,8 +141,12 @@ func normalizeCharsetName(name string) string {
 
 type privTypeEquivalence struct{}
 
-func (privTypeEquivalence) typeName() string            { return "PrivTypeType" }
-func (privTypeEquivalence) equivalent(a, b string) bool { return privTypeEquivalent(a, b) }
+func (privTypeEquivalence) typeName() string { return "PrivTypeType" }
+
+// equivalent treats `ALL` as `ALL PRIVILEGES`, which is what `SHOW GRANTS` reports.
+func (privTypeEquivalence) equivalent(a, b string) bool {
+	return normalizePrivType(a) == normalizePrivType(b)
+}
 
 type (
 	PrivTypeType  = semanticStringType[privTypeEquivalence]
@@ -152,11 +155,6 @@ type (
 
 func NewPrivTypeValue(value string) PrivTypeValue {
 	return PrivTypeValue{StringValue: basetypes.NewStringValue(value)}
-}
-
-// privTypeEquivalent treats `ALL` as `ALL PRIVILEGES`, which is what `SHOW GRANTS` reports.
-func privTypeEquivalent(a, b string) bool {
-	return normalizePrivType(a) == normalizePrivType(b)
 }
 
 func normalizePrivType(privType string) string {

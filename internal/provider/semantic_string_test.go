@@ -19,8 +19,8 @@ func runEquivalenceCases(t *testing.T, name string, f func(a, b string) bool, ca
 	}
 }
 
-func TestCharsetNameEquivalent(t *testing.T) {
-	runEquivalenceCases(t, "charsetNameEquivalent", charsetNameEquivalent, []equivalenceCase{
+func TestCharsetNameEquivalence(t *testing.T) {
+	runEquivalenceCases(t, "charsetNameEquivalence.equivalent", charsetNameEquivalence{}.equivalent, []equivalenceCase{
 		{"utf8mb4", "UTF8MB4", true},
 		{"utf8mb4_bin", "UTF8MB4_BIN", true},
 		{"utf8mb3", "utf8", true},
@@ -31,8 +31,8 @@ func TestCharsetNameEquivalent(t *testing.T) {
 	})
 }
 
-func TestPrivTypeEquivalent(t *testing.T) {
-	runEquivalenceCases(t, "privTypeEquivalent", privTypeEquivalent, []equivalenceCase{
+func TestPrivTypeEquivalence(t *testing.T) {
+	runEquivalenceCases(t, "privTypeEquivalence.equivalent", privTypeEquivalence{}.equivalent, []equivalenceCase{
 		{"ALL PRIVILEGES", "ALL", true},
 		{"ALL", "ALL PRIVILEGES", true},
 		{"SELECT", "SELECT", true},
