@@ -124,10 +124,13 @@ func (charsetNameEquivalence) equivalent(a, b string) bool {
 }
 
 type (
-	CharsetNameType  = semanticStringType[charsetNameEquivalence]
+	// CharsetNameType is the type of a character set or collation name attribute.
+	CharsetNameType = semanticStringType[charsetNameEquivalence]
+	// CharsetNameValue is a value of CharsetNameType.
 	CharsetNameValue = semanticStringValue[charsetNameEquivalence]
 )
 
+// NewCharsetNameValue returns a known CharsetNameValue.
 func NewCharsetNameValue(value string) CharsetNameValue {
 	return newSemanticStringValue[charsetNameEquivalence](value)
 }
@@ -155,10 +158,13 @@ func (privTypeEquivalence) equivalent(a, b string) bool {
 }
 
 type (
-	PrivTypeType  = semanticStringType[privTypeEquivalence]
+	// PrivTypeType is the type of a privilege name attribute.
+	PrivTypeType = semanticStringType[privTypeEquivalence]
+	// PrivTypeValue is a value of PrivTypeType.
 	PrivTypeValue = semanticStringValue[privTypeEquivalence]
 )
 
+// NewPrivTypeValue returns a known PrivTypeValue.
 func NewPrivTypeValue(value string) PrivTypeValue {
 	return newSemanticStringValue[privTypeEquivalence](value)
 }
